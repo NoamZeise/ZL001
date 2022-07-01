@@ -3,11 +3,9 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::image;
 
-use zl001::TextureManager;
-pub mod player;
-use player::Player;
-pub mod input;
-use input::Input;
+use zl001::{TextureManager, FontManager};
+use zl001::player::Player;
+use zl001::input::Input;
 
 use std::path::Path;
 use std::time::Instant;
@@ -31,6 +29,13 @@ pub fn main() -> Result<(), String> {
 
     let texture_creator = canvas.texture_creator();
     let mut texture_manager = TextureManager::new(&texture_creator);
+    let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
+    let mut font_manager = FontManager::new(&ttf_context, &texture_creator)?;
+
+    let roboto_font = font_manager.load_font(Path::new("textures/Roboto-Black.ttf"))?;
+
+    let mut message_texture = font_manager.get_draw(&roboto_font, "Hello  Rust SDL2!", 50)?;
+    message_texture.rect.y = 50;
 
     canvas.set_draw_color(Color::RGB(100, 100, 100));
 
@@ -56,6 +61,12 @@ pub fn main() -> Result<(), String> {
         canvas.clear();
 
         texture_manager.draw(&mut canvas, &player.game_obj())?;
+
+        canvas.copy(&message_texture.tex, None, message_texture.rect)?;
+
+        let mut update = font_manager.get_draw(&roboto_font, &prev_frame.to_string(), 100)?;
+        update.rect.y = 500;
+        canvas.copy(&update.tex, None, update.rect)?;
 
         canvas.present();
 

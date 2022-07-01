@@ -1,3 +1,5 @@
+//! take sdl2 events and update a struct of bools for required controls
+
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 

@@ -1,6 +1,6 @@
-use zl001::{GameObject, resource};
+use crate::{GameObject, resource};
 use crate::input::Input;
-use zl001::geometry::{Rect, Vec2};
+use crate::geometry::{Rect, Vec2};
 pub struct Player {
     game_obj : GameObject,
 }

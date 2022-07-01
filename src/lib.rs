@@ -1,6 +1,5 @@
 use sdl2::render::{TextureCreator, Texture, Canvas};
 use sdl2::video::Window;
-use sdl2::surface::Surface;
 use sdl2::image::LoadTexture;
 use sdl2::pixels::Color;
 use sdl2::ttf;
@@ -10,8 +9,13 @@ use std::path::Path;
 use std::clone::Clone;
 pub mod geometry;
 use crate::geometry::Rect;
+pub mod input;
+pub mod player;
+
 
 pub mod resource {
+//! represent sdl2 textures and fonts as cheap structs that hold indexes for resource managers
+
     #[derive(Clone)]
     pub struct Texture {
         pub id:     usize,
@@ -43,8 +47,8 @@ impl GameObject {
 
 pub struct TextureManager<'a, T> {
     texture_creator : &'a TextureCreator<T>,
-    loaded_textures : HashMap<String, Texture<'a>>,
-    texture_ids     : Vec<String>,
+    loaded_texture_paths : HashMap<String,  usize>,
+    textures     : Vec<Texture<'a>>,
 }
 
 impl<'a, T> TextureManager<'a, T> {
@@ -52,28 +56,34 @@ impl<'a, T> TextureManager<'a, T> {
 
         TextureManager {
             texture_creator : tex_creator,
-            loaded_textures: HashMap::new(),
-            texture_ids : Vec::new(),
+            loaded_texture_paths: HashMap::new(),
+            textures : Vec::new(),
         }
     }
 
     pub fn load(&mut self, path : &Path) -> Result<resource::Texture, String> {
-        let path_string = path.to_string_lossy().to_string();
-        self.loaded_textures.insert(path_string.clone(), self.texture_creator.load_texture(path)?);
-        self.texture_ids.push(path_string);
-        let last_tex_index = self.texture_ids.len() - 1;
-        let last_tex = &self.loaded_textures[&self.texture_ids[last_tex_index]];
+        let path_as_string = path.to_string_lossy().to_string();
+        let tex_index = match self.loaded_texture_paths.contains_key(&path_as_string) {
+            true => self.loaded_texture_paths[&path_as_string],
+            false => {
+                self.textures.push(self.texture_creator.load_texture(path)?);
+                self.loaded_texture_paths.insert(path_as_string, self.textures.len() - 1);
+                self.textures.len() - 1
+            },
+        };
+        let last_tex = &self.textures[tex_index];
         Ok(
         resource::Texture {
-            id: last_tex_index,
+            id: tex_index,
             width: last_tex.query().width,
             height: last_tex.query().height,
         })
+
     }
 
     pub fn draw(&self, canvas : &mut Canvas<Window>, game_obj: &GameObject) -> Result<(), String> {
         canvas.copy(
-            &self.loaded_textures[&self.texture_ids[game_obj.tex.id]],
+            &self.textures[game_obj.tex.id],
             match &game_obj.tex_rect {
                 Some(r) => Some(r.to_sdl_rect()),
                 None => None
@@ -83,51 +93,67 @@ impl<'a, T> TextureManager<'a, T> {
     }
 }
 
-const FONT_LOAD_SIZE : u16 = 128;
-
-pub struct FontManager<'a> {
-    ttf_context: ttf::Sdl2TtfContext,
-    loaded_fonts : HashMap<String, ttf::Font<'a, 'a>>,
-    font_ids : Vec<String>,
+pub struct TextDraw<'a> {
+    pub tex  : sdl2::render::Texture<'a>,
+    pub rect : sdl2::rect::Rect,
 }
 
-impl<'a> FontManager<'a> {
-    pub fn new() -> Result<Self, String> {
-        let ttf_context = match ttf::init() {
-          Ok(t) => t,
-          Err(e) => { return Err(e.to_string()); }
-        };
+const FONT_LOAD_SIZE : u16 = 128;
 
+pub struct FontManager<'a, T> {
+    texture_creator : &'a TextureCreator<T>,
+    ttf_context: &'a ttf::Sdl2TtfContext,
+    loaded_font_paths : HashMap<String, usize>,
+    pub fonts : Vec<ttf::Font<'a, 'static>>,
+}
+
+impl<'a, T> FontManager<'a, T> {
+    pub fn new(ttf_context : &'a ttf::Sdl2TtfContext, texture_creator : &'a TextureCreator<T>) -> Result<Self, String> {
         Ok(FontManager {
+            texture_creator,
             ttf_context,
-            loaded_fonts: HashMap::new(),
-            font_ids : Vec::new(),
+            loaded_font_paths: HashMap::new(),
+            fonts : Vec::new(),
         })
     }
 
-    pub fn load_font(&'a mut self, path : &Path) -> Result<resource::Font, String>{
+    pub fn load_font(&mut self, path : &Path) -> Result<resource::Font, String>{
         let path_string = path.to_string_lossy().to_string();
-        self.loaded_fonts.insert(
-            path_string.clone(),
-            match self.ttf_context.load_font(path, FONT_LOAD_SIZE) {
-                Ok(s) => s,
-                Err(e) => { return Err(e.to_string()); }
+        let font_index = match self.loaded_font_paths.contains_key(&path_string) {
+            true => self.loaded_font_paths[&path_string],
+            false => {
+                self.fonts.push(
+                    match self.ttf_context.load_font(path, FONT_LOAD_SIZE) {
+                        Ok(s) => s,
+                        Err(e) => { return Err(e.to_string()); }
+                    }
+                );
+                self.loaded_font_paths.insert(path_string, self.fonts.len() - 1);
+                self.fonts.len() - 1
             }
-        );
-        self.font_ids.push(path_string);
-        let last_font_index = self.font_ids.len() - 1;
+        };
         Ok(
             resource::Font {
-            id: last_font_index,
+            id: font_index,
         })
     }
 
-    pub fn get_surface(&self, font: resource::Font, text: &str) -> Result<Surface, String> {
-        match self.loaded_fonts[&self.font_ids[font.id]]
+    pub fn get_draw(&self, font: &resource::Font, text: &str, height : u32) -> Result<TextDraw, String> {
+       let surface = match self.fonts[font.id]
             .render(text)
             .blended(Color::RGBA(255, 255, 255, 255)) {
-                Ok(s) => Ok(s),
-                Err(e) => Err(e.to_string()),
-        }
+                Ok(s) => s,
+                Err(e) => return Err(e.to_string()),
+        };
+        let tex = match self.texture_creator.create_texture_from_surface(&surface) {
+            Ok(t) => t,
+            Err(e) => { return Err(e.to_string()); },
+        };
+        let ratio = tex.query().height as f64 / tex.query().width as f64;
+        Ok(
+        TextDraw {
+            tex,
+            rect: sdl2::rect::Rect::new(0, 0, (height as f64 / ratio) as u32, height),
+        })
     }
 }
