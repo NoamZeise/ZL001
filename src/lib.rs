@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::clone::Clone;
 pub mod geometry;
-use crate::geometry::Rect;
+use crate::geometry::{Rect, Vec2};
 pub mod input;
 pub mod player;
 
@@ -93,6 +93,7 @@ impl<'a, T> TextureManager<'a, T> {
     }
 }
 
+/// can be returned by `FontManager`, stores an sdl2 texture and a rect for drawing to a canvas
 pub struct TextDraw<'a> {
     pub tex  : sdl2::render::Texture<'a>,
     pub rect : sdl2::rect::Rect,
@@ -100,6 +101,7 @@ pub struct TextDraw<'a> {
 
 const FONT_LOAD_SIZE : u16 = 128;
 
+/// Stores 'sdl2::ttf::Font' and returns textures or draws them
 pub struct FontManager<'a, T> {
     texture_creator : &'a TextureCreator<T>,
     ttf_context: &'a ttf::Sdl2TtfContext,
@@ -137,7 +139,7 @@ impl<'a, T> FontManager<'a, T> {
             id: font_index,
         })
     }
-
+    /// return a `TextDraw` that has a corrected `rect.width` based on the supplied height and the rendered font
     pub fn get_draw(&self, font: &resource::Font, text: &str, height : u32) -> Result<TextDraw, String> {
        let surface = match self.fonts[font.id]
             .render(text)
@@ -155,5 +157,14 @@ impl<'a, T> FontManager<'a, T> {
             tex,
             rect: sdl2::rect::Rect::new(0, 0, (height as f64 / ratio) as u32, height),
         })
+    }
+
+    /// draws the supplied text to the canvas in the supplied font at the given height and position
+    pub fn draw(&self, canvas : &mut Canvas<Window>, font : &resource::Font, text: &str, height : u32, pos : Vec2) -> Result<(), String> {
+        if text.len() == 0 { return Ok(()); }
+        let mut tex_draw = self.get_draw(font, text, height)?;
+        tex_draw.rect.x = pos.x as i32;
+        tex_draw.rect.y = pos.y as i32;
+        canvas.copy(&tex_draw.tex, None, tex_draw.rect)
     }
 }
