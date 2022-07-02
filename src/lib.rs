@@ -10,7 +10,7 @@ use std::clone::Clone;
 pub mod geometry;
 use crate::geometry::{Rect, Vec2};
 pub mod input;
-pub mod player;
+pub mod code_window;
 
 
 pub mod resource {
@@ -141,7 +141,12 @@ impl<'a, T> FontManager<'a, T> {
     }
     /// return a `TextDraw` that has a corrected `rect.width` based on the supplied height and the rendered font
     pub fn get_draw(&self, font: &resource::Font, text: &str, height : u32) -> Result<TextDraw, String> {
-       let surface = match self.fonts[font.id]
+        self.get_draw_at_vec2(font, text, height, Vec2::new(0.0, 0.0))
+    }
+
+    pub fn get_draw_at_vec2(&self, font: &resource::Font, text: &str, height : u32, pos: Vec2) -> Result<TextDraw, String> {
+        if text.len() == 0 { Err("text length should be greater than 0")?; }
+        let surface = match self.fonts[font.id]
             .render(text)
             .blended(Color::RGBA(255, 255, 255, 255)) {
                 Ok(s) => s,
@@ -155,7 +160,13 @@ impl<'a, T> FontManager<'a, T> {
         Ok(
         TextDraw {
             tex,
-            rect: sdl2::rect::Rect::new(0, 0, (height as f64 / ratio) as u32, height),
+            rect:
+             sdl2::rect::Rect::new(
+                pos.x as i32,
+                pos.y as i32,
+                (height as f64 / ratio) as u32,
+                height
+             ),
         })
     }
 

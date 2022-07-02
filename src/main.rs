@@ -4,9 +4,8 @@ use sdl2::pixels::Color;
 use sdl2::image;
 
 use zl001::{TextureManager, FontManager};
-use zl001::player::Player;
 use zl001::input::{Input, Typing};
-use zl001::geometry::Vec2;
+use zl001::code_window::CodeWindow;
 
 use std::path::Path;
 use std::time::Instant;
@@ -33,21 +32,15 @@ pub fn main() -> Result<(), String> {
     let mut font_manager = FontManager::new(&ttf_context, &texture_creator)?;
 
     let mono_font = font_manager.load_font(Path::new("textures/FiraCode-Light.ttf"))?;
-
-    let mut message_texture = font_manager.get_draw(&mono_font, "Hello SDL2 Rust", 25)?;
-    message_texture.rect.x = 10;
-    message_texture.rect.y = 50;
+    let mut code_window = CodeWindow::new(mono_font);
 
     canvas.set_draw_color(Color::RGB(100, 100, 100));
 
     video_subsystem.text_input().start();
 
-    let mut typed_text = String::new();
-
     let mut event_pump = sdl_context.event_pump()?;
     let mut input = Input::new();
     let mut typing = Typing::new();
-    let mut player = Player::new(texture_manager.load(Path::new("textures/gaia.png"))?);
     let mut prev_frame : f64 = 0.0;
     'running: loop {
         let start_time = Instant::now();
@@ -67,26 +60,15 @@ pub fn main() -> Result<(), String> {
 
         canvas.clear();
 
-        texture_manager.draw(&mut canvas, &player.game_obj())?;
-
-        canvas.copy(&message_texture.tex, None, message_texture.rect)?;
-
-        font_manager.draw(&mut canvas, &mono_font, &prev_frame.to_string(), 100, Vec2::new(50.0, 200.0))?;
-
-        match typing.character {
-            Some(c) => {
-                typed_text.push(c);
-            },
-            None => (),
+        code_window.set_draw_lines(&font_manager)?;
+        for l in code_window.get_draw_code() {
+            canvas.copy(&l.tex, None, l.rect)?;
         }
-        typing.used_character();
-
-        font_manager.draw(&mut canvas, &mono_font, &&typed_text, 55, Vec2::new(10.0, 300.0))?;
 
         canvas.present();
 
-        // The rest of the game loop goes here...
-        player.update(prev_frame, &input);
+
+        code_window.update(prev_frame, &mut typing);
 
         prev_frame = start_time.elapsed().as_secs_f64();
     }

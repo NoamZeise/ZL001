@@ -1,7 +1,7 @@
 //! take sdl2 events and update a struct of bools for required controls
 
 use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{Keycode, Scancode};
 
 pub struct Input {
     pub up : bool,
@@ -98,14 +98,14 @@ impl Typing {
            let mut key_down = false;
            let key = match event {
                Event::KeyDown {
-                   keycode: k,
+                   scancode: k,
                    ..
                } => {
                    key_down = true;
                    k
                },
                Event::KeyUp {
-                   keycode: k,
+                   scancode: k,
                    ..
                } => k,
                 _ => &None
@@ -113,18 +113,18 @@ impl Typing {
            match key {
                Some(k) => {
                    match k {
-                       Keycode::Up => self.up    = key_down,
-                       Keycode::Left => self.left  = key_down,
-                       Keycode::Down => self.down  = key_down,
-                       Keycode::Right => self.right = key_down,
-                       Keycode::Backspace => self.backspace = key_down,
-                       Keycode::Return => self.enter = key_down,
-                       Keycode::LCtrl => self.ctrl = key_down,
-                       Keycode::LShift => self.shift = key_down,
-                       Keycode::C => self.c = key_down,
-                       Keycode::V => self.v = key_down,
-                       Keycode::Z => self.z = key_down,
-                       Keycode::Y => self.y = key_down,
+                       Scancode::Up => self.up    = key_down,
+                       Scancode::Left => self.left  = key_down,
+                       Scancode::Down => self.down  = key_down,
+                       Scancode::Right => self.right = key_down,
+                       Scancode::Backspace => self.backspace = key_down,
+                       Scancode::Return => self.enter = key_down,
+                       Scancode::LCtrl => self.ctrl = key_down,
+                       Scancode::LShift => self.shift = key_down,
+                       Scancode::C => self.c = key_down,
+                       Scancode::V => self.v = key_down,
+                       Scancode::Z => self.z = key_down,
+                       Scancode::Y => self.y = key_down,
                        _ => {}
                    }
                 }
