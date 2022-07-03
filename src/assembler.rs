@@ -195,14 +195,49 @@ fn check_line(line : &InterimLine, line_index : u16) -> Result<(), CodeError> {
 fn get_lines(program_code : &str) -> Result<Vec<InterimLine>, CodeError> {
     let mut lines = Vec::new();
     let mut line = InterimLine::new();
+
     for (line_index, l) in program_code.split('\n').enumerate() {
         for (i, w) in l.split(" ").enumerate() {
             if w.len() == 0 {
                  continue;
             }
-            if w.starts_with(";") {
+            let w : Vec<&str> = w.split(";").collect();
+            if w.len() != 1 {
                 break;
             }
+            let w = w.as_slice()[0];
+            if w.len() == 0 {
+                continue;
+            }
+
+            //add to line
+            match line.instr {
+                //add lable or instruction
+                None => line.instr = match get_instruction(w) {
+                    Err(_) => {
+                        if line.lable.is_some() || !w.ends_with(":") {
+                            return Err(CodeError::UnknownInst(line_index as u16));
+                        } else {
+                            line.lable = Some(w.to_string());
+                            None
+                        }
+                    }
+                    Ok(instr) => Some(instr),
+                },
+                //add Operand
+                _ => {
+                    if line.op1.is_none() {
+                        line.op1 = Some(get_operand(w, line_index)?);
+                    }
+                }
+            }
+
+        }
+        match line.instr {
+            Some(instr) => {
+                //add
+            },
+            None,
         }
     }
 
