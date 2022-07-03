@@ -13,13 +13,22 @@ pub enum Instruction {
     HLT,
 }
 
-enum Operand {
+enum Register {
     R1,
     R2,
     RT,
     RJ,
+}
+
+enum InterimOp {
+    Reg(Register),
     Direct(u16),
-    Lable,
+    Lable(String),
+}
+
+enum Operand {
+    Reg(Register),
+    Direct(u16)
 }
 
 #[derive(Debug)]
@@ -38,17 +47,17 @@ pub enum CodeError {
     OutOfInstructions,
 }
 
-struct Line {
+struct InterimLine {
     lable : Option<String>,
     instr : Option<Instruction>,
-    op1   : Option<Operand>,
-    op2   : Option<Operand>,
-    op3   : Option<Operand>,
+    op1   : Option<InterimOp>,
+    op2   : Option<InterimOp>,
+    op3   : Option<InterimOp>,
 }
 
-impl Line {
+impl InterimLine {
     pub fn new() -> Self {
-        Line {
+        InterimLine {
             lable : None,
             instr : None,
             op1 : None,
@@ -58,8 +67,15 @@ impl Line {
     }
 }
 
+struct Line {
+    instr : Instruction,
+    op1   : Option<InterimOp>,
+    op2   : Option<InterimOp>,
+    op3   : Option<InterimOp>,
+}
+
 pub struct Program {
-    code : Vec<Line>,
+    code : Vec<InterimLine>,
     lables : HashMap<String, u16>,
 
     r1 : u16,
@@ -84,26 +100,41 @@ impl Program {
 }
 
 
-fn get_operand(word : &str, line_index : usize) -> Result<Operand, CodeError> {
+fn get_operand(word : &str, line_index : usize) -> Result<InterimOp, CodeError> {
     Ok(
         match word.to_uppercase().as_str() {
-            "R1" => Operand::R1,
-            "R2" => Operand::R2,
-            "RT" => Operand::RT,
-            "RJ" => Operand::RJ,
+            "R1" => InterimOp::Reg(Register::R1),
+            "R2" => InterimOp::Reg(Register::R2),
+            "RT" => InterimOp::Reg(Register::RT),
+            "RJ" => InterimOp::Reg(Register::RJ),
             _ => {
                 if word.starts_with("#") {
                     match word.split_at(1).1.parse::<u16>() {
-                         Ok(n) => Operand::Direct(n),
+                         Ok(n) => InterimOp::Direct(n),
                          _ => { return Err(CodeError::UnknownNumber(line_index as u16)); }
                     }
-                } else { Operand::Lable }
+                } else { InterimOp::Lable(word.to_string()) }
             }
         }
     )
 }
 
-fn check_line(line : &Line, line_index : u16) -> Result<(), CodeError> {
+fn get_instruction(text: &str) -> Result<Instruction, ()> {
+    match text.to_uppercase().as_str() {
+                            "ADD" => Ok(Instruction::ADD),
+                            "SUB" => Ok(Instruction::SUB),
+                            "MUL" => Ok(Instruction::MUL),
+                            "DIV" => Ok(Instruction::DIV),
+                            "CMP" => Ok(Instruction::CMP),
+                            "BRC" => Ok(Instruction::BRC),
+                            "BGT" => Ok(Instruction::BGT),
+                            "BLT" => Ok(Instruction::BLT),
+                            "HLT" => Ok(Instruction::HLT),
+                            _     => Err(())
+    }
+}
+
+fn check_line(line : &InterimLine, line_index : u16) -> Result<(), CodeError> {
     if line.instr.is_none()  {
         if line.op1.is_some() || line.op2.is_some() || line.op3.is_some() {
             Err(CodeError::InstAfterLable(line_index))
@@ -118,10 +149,10 @@ fn check_line(line : &Line, line_index : u16) -> Result<(), CodeError> {
             Instruction::BRC |
             Instruction::BGT |
             Instruction::BLT => {
-                match line.op1 {
+                match &line.op1 {
                     Some(op) => {
                         match op {
-                            Operand::Lable =>
+                            InterimOp::Lable(..) =>
                                 if  line.op2.is_some() || line.op3.is_some() {
                                     Err(CodeError::TooManyOps(line_index))
                                 } else {
@@ -133,36 +164,26 @@ fn check_line(line : &Line, line_index : u16) -> Result<(), CodeError> {
                     _ => Err(CodeError::MissingLable(line_index))
                 }
             }
-            Instruction::CMP => match line.op1 {
-                Some(s) =>  match s {
-                    Operand::Direct(..) |
-                    Operand::Lable => Err(CodeError::InvalidOp(line_index)),
-                    _ => {
-                        match line.op2 {
-                            Some(s) =>  match s {
-                                Operand::Direct(..) |
-                                Operand::Lable => Err(CodeError::InvalidOp(line_index)),
-                                _ => if line.op3.is_none() { Err(CodeError::TooManyOps(line_index)) } else { Ok(()) }
-                                },
-                            _ => Err(CodeError::TooFewOps(line_index)),
+            Instruction::CMP => {
+                        if line.op1.is_none() || line.op2.is_none() {
+                            return Err(CodeError::TooFewOps(line_index));
                         }
-                    }
-                }
-                _ => Err(CodeError::TooFewOps(line_index)),
-            }
+                        if line.op3.is_some() {
+                            return Err(CodeError::TooManyOps(line_index));
+                        }
+                        Ok(())
+                    },
             Instruction::ADD |
             Instruction::SUB |
             Instruction::MUL |
             Instruction::DIV => {
-                if line.op1.is_some()  {
-                } else { return Err(CodeError::TooFewOps(line_index)); }
-                if line.op2.is_some()  {
-
-                } else { return Err(CodeError::TooFewOps(line_index)); }
+                if line.op1.is_none() || line.op2.is_none()  {
+                    return Err(CodeError::TooFewOps(line_index));
+                }
                 if line.op3.is_some()  {
                     match line.op3.as_ref().unwrap() {
-                        Operand::Lable |
-                        Operand::Direct(..) => Err(CodeError::InvalidOp(line_index)),
+                        InterimOp::Lable(..) |
+                        InterimOp::Direct(..) => Err(CodeError::InvalidOp(line_index)),
                         _ => Ok(()),
                     }
                 } else { Err(CodeError::TooFewOps(line_index)) }
@@ -171,71 +192,18 @@ fn check_line(line : &Line, line_index : u16) -> Result<(), CodeError> {
     }
 }
 
-fn get_lines(program_code : &str) -> Result<Vec<Line>, CodeError> {
+fn get_lines(program_code : &str) -> Result<Vec<InterimLine>, CodeError> {
     let mut lines = Vec::new();
+    let mut line = InterimLine::new();
     for (line_index, l) in program_code.split('\n').enumerate() {
-        if line_index > u16::max as usize {
-            return Err(CodeError::OutOfInstructions);
-        }
-        let mut line = Line::new();
         for (i, w) in l.split(" ").enumerate() {
             if w.len() == 0 {
-                 return Err(CodeError::TooManySpaces(line_index as u16));
+                 continue;
             }
             if w.starts_with(";") {
                 break;
             }
-             match i {
-                0 => {
-                    if w.ends_with(":") {
-                          if w.len() > 1 {
-                            line.lable = Some(w[0..w.len()-1].to_string());
-                            println!("added lable {}", line.lable.unwrap());
-                          } else {
-                             return Err(CodeError::MisformedLable(line_index as u16));
-                        }
-                    } else {
-                          line.instr = Some( match w.to_uppercase().as_str() {
-                            "ADD" => Instruction::ADD,
-                            "SUB" => Instruction::SUB,
-                            "MUL" => Instruction::MUL,
-                            "DIV" => Instruction::DIV,
-                            "CMP" => Instruction::CMP,
-                            "BRC" => Instruction::BRC,
-                            "BGT" => Instruction::BGT,
-                            "BLT" => Instruction::BLT,
-                            "HLT" => Instruction::HLT,
-                            _ => {
-                                return Err(CodeError::UnknownInst(line_index as u16));
-                            }
-                        });
-                    }
-                },
-                1 => {
-                    line.op1 = Some(get_operand(w, line_index)?);
-                    if matches!(line.op1.unwrap(),Operand::Lable)  {
-                        line.lable = Some(w.to_string());
-                    }
-                }
-                2 => {
-                    line.op2 = Some(get_operand(w, line_index)?);
-                    if matches!(line.op2.unwrap(),Operand::Lable)  {
-                        line.lable = Some(w.to_string());
-                    }
-                }
-                3 => {
-                    line.op3 = Some(get_operand(w, line_index)?);
-                    if matches!(line.op3.unwrap(),Operand::Lable)  {
-                        line.lable = Some(w.to_string());
-                    }
-                }
-                _ => {
-                        return Err(CodeError::TooManyOps(line_index as u16));
-                 }
-            }
         }
-        check_line(&line, line_index as u16)?;
-        lines.push(line);
     }
 
     Ok(lines)
