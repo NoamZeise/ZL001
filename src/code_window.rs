@@ -6,8 +6,7 @@ use crate::geometry::Vec2;
 
 use std::iter::Iterator;
 
-const FONT_MONO_WIDTH : f64 = 12.5;
-const TEXT_HEIGHT : u32 = 35;
+const TEXT_HEIGHT : u32 = 25;
 const BACKSPACE_DELAY : f64 = 0.6;
 const BACKSPACE_REPEAT_SPEED : f64 = 0.05;
 

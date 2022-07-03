@@ -11,6 +11,7 @@ pub mod geometry;
 use crate::geometry::{Rect, Vec2};
 pub mod input;
 pub mod code_window;
+pub mod assembler;
 
 
 pub mod resource {
