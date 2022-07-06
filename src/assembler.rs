@@ -13,12 +13,15 @@ pub enum Instruction {
     HLT,
 }
 
+#[derive(Copy, Clone)]
 enum Register {
+    PC,
     R1,
     R2,
     RT,
     RJ,
 }
+
 
 enum InterimOp {
     Reg(Register),
@@ -69,15 +72,14 @@ impl InterimLine {
 
 struct Line {
     instr : Instruction,
-    op1   : Option<InterimOp>,
-    op2   : Option<InterimOp>,
-    op3   : Option<InterimOp>,
+    op1   : Option<Operand>,
+    op2   : Option<Operand>,
+    op3   : Option<Operand>,
 }
 
 pub struct Program {
-    code : Vec<InterimLine>,
-    lables : HashMap<String, u16>,
-
+    code : Vec<Line>,
+    pc : u16,
     r1 : u16,
     r2 : u16,
     rt : u16,
@@ -86,11 +88,11 @@ pub struct Program {
 
 impl Program {
     pub fn new(program_code : &str) -> Result<Self, CodeError> {
-        let code = get_lines(program_code)?;
+        let interim_code = get_lines(program_code)?;
+        let code = to_final_lines(interim_code)?;
         Ok(Program {
             code,
-            lables : HashMap::new(),
-
+            pc : 0,
             r1 : 0,
             r2 : 0,
             rt : 0,
@@ -103,6 +105,7 @@ impl Program {
 fn get_operand(word : &str, line_index : usize) -> Result<InterimOp, CodeError> {
     Ok(
         match word.to_uppercase().as_str() {
+            "PC" => InterimOp::Reg(Register::PC),
             "R1" => InterimOp::Reg(Register::R1),
             "R2" => InterimOp::Reg(Register::R2),
             "RT" => InterimOp::Reg(Register::RT),
@@ -218,7 +221,7 @@ fn get_lines(program_code : &str) -> Result<Vec<InterimLine>, CodeError> {
                         if line.lable.is_some() || !w.ends_with(":") {
                             return Err(CodeError::UnknownInst(line_index as u16));
                         } else {
-                            line.lable = Some(w.to_string());
+                            line.lable = Some(w[0..w.len()-1].to_string());
                             None
                         }
                     }
@@ -228,22 +231,74 @@ fn get_lines(program_code : &str) -> Result<Vec<InterimLine>, CodeError> {
                 _ => {
                     if line.op1.is_none() {
                         line.op1 = Some(get_operand(w, line_index)?);
+                    } else if line.op2.is_none() {
+                        line.op2 = Some(get_operand(w, line_index)?);
+                    } else if line.op3.is_none() {
+                        line.op3 = Some(get_operand(w, line_index)?);
+                    } else {
+                        return Err(CodeError::TooManyOps(line_index as u16));
                     }
                 }
             }
 
         }
         match line.instr {
-            Some(instr) => {
-                //add
+            Some(_) => {
+                check_line(&line, line_index as u16)?;
+                lines.push(line);
+                line = InterimLine::new();
             },
-            None,
+            None => (),
         }
     }
 
     Ok(lines)
 }
 
+fn to_final_op(op : &Option<InterimOp>, lable_hash : &HashMap<String, u16>) -> Result<Option<Operand>, CodeError> {
+    Ok(match op {
+        Some(int_op) => match int_op {
+            InterimOp::Reg(reg) => Some(Operand::Reg(*reg)),
+            InterimOp::Direct(num) => Some(Operand::Direct(*num)),
+            InterimOp::Lable(lable) => {
+                if lable_hash.contains_key(lable) {
+                    Some(Operand::Direct(lable_hash[lable]))
+                } else {
+                    return Err(CodeError::MissingLable(0));
+                }
+            }
+   
+            },
+        None => None,
+    })
+}
+
+
+fn to_final_lines(lines: Vec<InterimLine>) -> Result<Vec<Line>, CodeError> {
+    let mut lable_hash : HashMap<String, u16> = HashMap::new();
+
+    //build label hash map
+    for (i, l) in lines.iter().enumerate() {
+        if l.lable.is_some() {
+            lable_hash.insert(l.lable.as_ref().unwrap().to_string(), i as u16);
+        }
+    }
+
+    //replace lables with line numbers
+    let mut final_lines = Vec::new();
+
+    for l in lines {
+        let new_line = Line {
+            instr : l.instr.unwrap(),
+            op1   : to_final_op(&l.op1, &lable_hash)?,
+            op2   : to_final_op(&l.op2, &lable_hash)?,
+            op3   : to_final_op(&l.op3, &lable_hash)?,
+        };
+        final_lines.push(new_line);
+    }
+    
+    Ok(final_lines)
+}
 
 
 #[cfg(test)]
@@ -251,12 +306,54 @@ mod tests {
     use super::*;
 
     #[test]
+    fn check_line_cmp() {
+        let line = InterimLine {
+            lable : None,
+            instr : Some(Instruction::CMP),
+            op1 : Some(InterimOp::Reg(Register::R1)),
+            op2 : Some(InterimOp::Direct(65)),
+            op3 : None
+        };
+        assert!(check_line(&line, 0).is_ok());
+    }
+
+     #[test]
+    fn check_line_add_err() {
+        let line = InterimLine {
+            lable : None,
+            instr : Some(Instruction::ADD),
+            op1 : Some(InterimOp::Reg(Register::R1)),
+            op2 : Some(InterimOp::Reg(Register::R2)),
+            op3 : Some(InterimOp::Direct(1000)),
+        };
+        assert!(check_line(&line, 0).is_err());
+    }
+
+    #[test]
     fn parse_into_lines_test1() {
-        let code = "ADD #10 #0 R1\nADD #12 #0 R2\nADD R1 R2 R1\nCMP R1 R2\nBGT end\nend:\nHLT";
+        let code =
+"
+ADD #10 #0 R1
+ADD #12 #0 R2
+ADD R1 R2 R1
+CMP R1 R2
+BGT end
+end:
+HLT
+";
 
         let lines = get_lines(code).unwrap();
+        println!("lines: {}", lines.len());
+        assert!(lines.len() == 6);
+        println!("end lable {}", lines[5].lable.as_ref().unwrap());
+        assert!(lines[5].lable == Some(String::from("end")));
+        assert!(matches!(lines[0].op1.as_ref().unwrap(),InterimOp::Direct(10)));
+        assert!(matches!(lines[2].instr.as_ref().unwrap(), Instruction::ADD));
+        assert!(matches!(lines[4].instr.as_ref().unwrap(), Instruction::BGT));
 
-        assert!(lines.len() == 7);
+
+        let final_lines = to_final_lines(lines).unwrap();
+        assert!(matches!(final_lines[4].op1.as_ref().unwrap(), Operand::Direct(5)));
     }
 
 }
