@@ -14,7 +14,7 @@ pub enum Instruction {
 }
 
 #[derive(Copy, Clone)]
-enum Register {
+pub enum Register {
     PC,
     R1,
     R2,
@@ -25,13 +25,8 @@ enum Register {
 
 enum InterimOp {
     Reg(Register),
-    Direct(u16),
+    Direct(i16),
     Lable(String),
-}
-
-enum Operand {
-    Reg(Register),
-    Direct(u16)
 }
 
 #[derive(Debug)]
@@ -70,35 +65,17 @@ impl InterimLine {
     }
 }
 
-struct Line {
-    instr : Instruction,
-    op1   : Option<Operand>,
-    op2   : Option<Operand>,
-    op3   : Option<Operand>,
+#[derive(Copy, Clone)]
+pub enum Operand {
+    Reg(Register),
+    Direct(i16)
 }
 
-pub struct Program {
-    code : Vec<Line>,
-    pc : u16,
-    r1 : u16,
-    r2 : u16,
-    rt : u16,
-    rj : u16,
-}
-
-impl Program {
-    pub fn new(program_code : &str) -> Result<Self, CodeError> {
-        let interim_code = get_lines(program_code)?;
-        let code = to_final_lines(interim_code)?;
-        Ok(Program {
-            code,
-            pc : 0,
-            r1 : 0,
-            r2 : 0,
-            rt : 0,
-            rj : 0,
-        })
-    }
+pub struct Line {
+    pub instr : Instruction,
+    pub op1   : Option<Operand>,
+    pub op2   : Option<Operand>,
+    pub op3   : Option<Operand>,
 }
 
 
@@ -113,7 +90,7 @@ fn get_operand(word : &str, line_index : usize) -> Result<InterimOp, CodeError> 
             _ => {
                 if word.starts_with("#") {
                     match word.split_at(1).1.parse::<u16>() {
-                         Ok(n) => InterimOp::Direct(n),
+                         Ok(n) => InterimOp::Direct(n as i16),
                          _ => { return Err(CodeError::UnknownNumber(line_index as u16)); }
                     }
                 } else { InterimOp::Lable(word.to_string()) }
@@ -200,7 +177,7 @@ fn get_lines(program_code : &str) -> Result<Vec<InterimLine>, CodeError> {
     let mut line = InterimLine::new();
 
     for (line_index, l) in program_code.split('\n').enumerate() {
-        for (i, w) in l.split(" ").enumerate() {
+        for w in l.split(" ") {
             if w.len() == 0 {
                  continue;
             }
@@ -259,10 +236,10 @@ fn to_final_op(op : &Option<InterimOp>, lable_hash : &HashMap<String, u16>) -> R
     Ok(match op {
         Some(int_op) => match int_op {
             InterimOp::Reg(reg) => Some(Operand::Reg(*reg)),
-            InterimOp::Direct(num) => Some(Operand::Direct(*num)),
+            InterimOp::Direct(num) => Some(Operand::Direct(*num as i16)),
             InterimOp::Lable(lable) => {
                 if lable_hash.contains_key(lable) {
-                    Some(Operand::Direct(lable_hash[lable]))
+                    Some(Operand::Direct(lable_hash[lable] as i16))
                 } else {
                     return Err(CodeError::MissingLable(0));
                 }
@@ -299,6 +276,13 @@ fn to_final_lines(lines: Vec<InterimLine>) -> Result<Vec<Line>, CodeError> {
     
     Ok(final_lines)
 }
+
+
+pub fn get_program_instructions(text_input : &str) -> Result<Vec<Line>, CodeError> {
+    let interim_lines = get_lines(text_input)?;
+    to_final_lines(interim_lines)
+}
+
 
 
 #[cfg(test)]
@@ -351,9 +335,9 @@ HLT
         assert!(matches!(lines[2].instr.as_ref().unwrap(), Instruction::ADD));
         assert!(matches!(lines[4].instr.as_ref().unwrap(), Instruction::BGT));
 
-
         let final_lines = to_final_lines(lines).unwrap();
         assert!(matches!(final_lines[4].op1.as_ref().unwrap(), Operand::Direct(5)));
+        assert!(matches!(final_lines[0].op3.as_ref().unwrap(), Operand::Reg(Register::R1)));
     }
 
 }

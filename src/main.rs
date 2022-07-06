@@ -27,7 +27,7 @@ pub fn main() -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     let texture_creator = canvas.texture_creator();
-    let mut texture_manager = TextureManager::new(&texture_creator);
+    let _texture_manager = TextureManager::new(&texture_creator);
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
     let mut font_manager = FontManager::new(&ttf_context, &texture_creator)?;
 
