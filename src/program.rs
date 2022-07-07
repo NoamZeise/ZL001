@@ -1,12 +1,15 @@
 use crate::assembler::{Instruction, Line, Register, CodeError, get_program_instructions, Operand};
 
+const TEST_EQUAL : i16 = 0b001;
+const TEST_LESS_THAN : i16 = 0b010;
+const TEST_GREATER_THAN : i16 = 0b100;
+
 pub struct Program {
     code : Vec<Line>,
     pc : i16,
     r1 : i16,
     r2 : i16,
     rt : i16,
-    rj : i16,
     halted : bool,
 }
 
@@ -18,7 +21,6 @@ impl Program {
             r1 : 0,
             r2 : 0,
             rt : 0,
-            rj : 0,
             halted : false,
         })
     }
@@ -42,8 +44,35 @@ impl Program {
                     Operand::Reg(reg) => self.set_register_value(reg, result),
                     _ => panic!("shouldn't be able to assign to non-register"),
             }},
-            Instruction::CMP => (),
-            _ => ()
+            Instruction::CMP => {
+                self.rt = 0;
+                let val1 = self.get_operand_value(current_line.op1.unwrap());
+                let val2 = self.get_operand_value(current_line.op2.unwrap());
+                if val1 == val2 { self.rt |= TEST_EQUAL; }
+                if val1 > val2 { self.rt |= TEST_GREATER_THAN; }
+                if val1 < val2 { self.rt |= TEST_LESS_THAN; }
+            },
+            Instruction::BRC => {
+                self.pc = self.get_operand_value(current_line.op1.unwrap());
+            }
+            Instruction::BEQ => {
+                if (self.rt | TEST_EQUAL) != 0 {
+                    self.pc = self.get_operand_value(current_line.op1.unwrap());
+                }
+            }
+            Instruction::BGT => {
+                if (self.rt | TEST_GREATER_THAN) != 0 {
+                    self.pc = self.get_operand_value(current_line.op1.unwrap());
+                }
+            }
+            Instruction::BLT => {
+                if (self.rt | TEST_LESS_THAN) != 0 {
+                    self.pc = self.get_operand_value(current_line.op1.unwrap());
+                }
+            }
+            Instruction::HLT => {
+                self.halted = true;
+            }
        } 
     }
 
@@ -60,7 +89,6 @@ impl Program {
             Register::R1 => self.r1,
             Register::R2 => self.r2,
             Register::RT => self.rt,
-            Register::RJ => self.rj,
         }
     }
 
@@ -70,7 +98,6 @@ impl Program {
             Register::R1 => self.r1 = value,
             Register::R2 => self.r2 = value,
             Register::RT => self.rt = value,
-            Register::RJ => self.rj = value,
         }
     }
         

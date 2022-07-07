@@ -6,6 +6,7 @@ use sdl2::image;
 use zl001::{TextureManager, FontManager};
 use zl001::input::{Input, Typing};
 use zl001::code_window::CodeWindow;
+use zl001::program::Program;
 
 use std::path::Path;
 use std::time::Instant;
@@ -67,8 +68,14 @@ pub fn main() -> Result<(), String> {
 
         canvas.present();
 
-
         code_window.update(prev_frame, &mut typing);
+
+        let code = Program::new(code_window.get_code());
+
+        match code {
+            Ok(c) => println!("Code OK!"),
+            Err(e) => println!("Code Error: {}", stringify!(e)),
+        }
 
         prev_frame = start_time.elapsed().as_secs_f64();
     }

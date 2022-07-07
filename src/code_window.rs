@@ -108,6 +108,10 @@ impl<'a> CodeWindow<'a> {
     pub fn get_draw_code(&self) -> impl Iterator<Item=&TextDraw> {
         self.line_draws.iter()
     }
+
+    pub fn get_code(&self) -> &str {
+        &self.code
+    }
 }
 
 fn get_code_lines(code : &str) -> Vec<String> {

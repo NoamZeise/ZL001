@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, iter::Inspect};
 
 #[derive(Copy, Clone)]
 pub enum Instruction {
@@ -8,6 +8,7 @@ pub enum Instruction {
     DIV,
     CMP,
     BRC,
+    BEQ,
     BGT,
     BLT,
     HLT,
@@ -19,7 +20,6 @@ pub enum Register {
     R1,
     R2,
     RT,
-    RJ,
 }
 
 
@@ -86,7 +86,6 @@ fn get_operand(word : &str, line_index : usize) -> Result<InterimOp, CodeError> 
             "R1" => InterimOp::Reg(Register::R1),
             "R2" => InterimOp::Reg(Register::R2),
             "RT" => InterimOp::Reg(Register::RT),
-            "RJ" => InterimOp::Reg(Register::RJ),
             _ => {
                 if word.starts_with("#") {
                     match word.split_at(1).1.parse::<u16>() {
@@ -107,6 +106,7 @@ fn get_instruction(text: &str) -> Result<Instruction, ()> {
                             "DIV" => Ok(Instruction::DIV),
                             "CMP" => Ok(Instruction::CMP),
                             "BRC" => Ok(Instruction::BRC),
+                            "BEQ" => Ok(Instruction::BEQ),
                             "BGT" => Ok(Instruction::BGT),
                             "BLT" => Ok(Instruction::BLT),
                             "HLT" => Ok(Instruction::HLT),
@@ -127,6 +127,7 @@ fn check_line(line : &InterimLine, line_index : u16) -> Result<(), CodeError> {
                                     Ok(())
                                 }
             Instruction::BRC |
+            Instruction::BEQ |
             Instruction::BGT |
             Instruction::BLT => {
                 match &line.op1 {
