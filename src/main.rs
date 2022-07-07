@@ -34,7 +34,7 @@ pub fn main() -> Result<(), String> {
 
     let mono_font = font_manager.load_font(Path::new("textures/FiraCode-Light.ttf"))?;
     let mut code_window = CodeWindow::new(mono_font);
-
+    let mut code = Program::blank();
     canvas.set_draw_color(Color::RGB(100, 100, 100));
 
     video_subsystem.text_input().start();
@@ -42,6 +42,7 @@ pub fn main() -> Result<(), String> {
     let mut event_pump = sdl_context.event_pump()?;
     let mut input = Input::new();
     let mut typing = Typing::new();
+    let mut prev_typing = Typing::new();
     let mut prev_frame : f64 = 0.0;
     'running: loop {
         let start_time = Instant::now();
@@ -70,13 +71,32 @@ pub fn main() -> Result<(), String> {
 
         code_window.update(prev_frame, &mut typing);
 
-        let code = Program::new(code_window.get_code());
-
-        match code {
-            Ok(c) => println!("Code OK!"),
-            Err(e) => println!("Code Error: {}", stringify!(e)),
+        if typing.ctrl && typing.l && !prev_typing.l {
+            code = match Program::new(code_window.get_code()) {
+                Ok(c) => {
+                    println!("Code Ok");
+                    c
+                },
+                Err(_) => {
+                    println!("Code Err");
+                    Program::blank()
+                },
+            };
         }
 
+        if typing.ctrl && typing.s && ! prev_typing.s {
+            code.step();
+            if code.halted() {
+                println!("Program Halted\n");
+            } else {
+                println!("PC: {}", code.get_register_value(zl001::assembler::Register::PC));
+                println!("R1: {}", code.get_register_value(zl001::assembler::Register::R1));
+                println!("R2: {}", code.get_register_value(zl001::assembler::Register::R2));
+                println!("RT: {}\n", code.get_register_value(zl001::assembler::Register::RT));
+            }
+        }
+        
+        prev_typing = typing;
         prev_frame = start_time.elapsed().as_secs_f64();
     }
 

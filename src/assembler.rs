@@ -32,18 +32,17 @@ enum InterimOp {
 
 #[derive(Debug)]
 pub enum CodeError {
-    TooManyOps(u16),
-    UnknownOp(u16),
-    UnknownInst(u16),
-    MissingLable(u16),
-    MisformedLable(u16),
-    UnknownNumber(u16),
-    TooManySpaces(u16),
-    JumpNeedsLable(u16),
-    InstAfterLable(u16),
-    TooFewOps(u16),
-    InvalidOp(u16),
-    OutOfInstructions,
+    TooManyOps(usize),
+    UnknownOp(usize),
+    UnknownInst(usize),
+    MissingLable(usize),
+    MisformedLable(usize),
+    UnknownNumber(usize),
+    TooManySpaces(usize),
+    JumpNeedsLable(usize),
+    InstAfterLable(usize),
+    TooFewOps(usize),
+    InvalidOp(usize),
 }
 
 struct InterimLine {
@@ -72,6 +71,7 @@ pub enum Operand {
     Direct(i16)
 }
 
+#[derive(Copy, Clone)]
 pub struct Line {
     pub instr : Instruction,
     pub op1   : Option<Operand>,
@@ -91,7 +91,7 @@ fn get_operand(word : &str, line_index : usize) -> Result<InterimOp, CodeError> 
                 if word.starts_with("#") {
                     match word.split_at(1).1.parse::<u16>() {
                          Ok(n) => InterimOp::Direct(n as i16),
-                         _ => { return Err(CodeError::UnknownNumber(line_index as u16)); }
+                         _ => { return Err(CodeError::UnknownNumber(line_index)); }
                     }
                 } else { InterimOp::Lable(word.to_string()) }
             }
@@ -116,7 +116,7 @@ fn get_instruction(text: &str) -> Result<Instruction, ()> {
     }
 }
 
-fn check_line(line : &InterimLine, line_index : u16) -> Result<(), CodeError> {
+fn check_line(line : &InterimLine, line_index : usize) -> Result<(), CodeError> {
     if line.instr.is_none()  {
         if line.op1.is_some() || line.op2.is_some() || line.op3.is_some() {
             Err(CodeError::InstAfterLable(line_index))
@@ -200,7 +200,7 @@ fn get_lines(program_code : &str) -> Result<Vec<InterimLine>, CodeError> {
                 None => line.instr = match get_instruction(w) {
                     Err(_) => {
                         if !w.ends_with(":") {
-                            return Err(CodeError::UnknownInst(line_index as u16));
+                            return Err(CodeError::UnknownInst(line_index));
                         } else {
                             if line.lable.is_some() {
                                 line.instr = Some(Instruction::NOP);
@@ -222,7 +222,7 @@ fn get_lines(program_code : &str) -> Result<Vec<InterimLine>, CodeError> {
                     } else if line.op3.is_none() {
                         line.op3 = Some(get_operand(w, line_index)?);
                     } else {
-                        return Err(CodeError::TooManyOps(line_index as u16));
+                        return Err(CodeError::TooManyOps(line_index));
                     }
                 }
             }
@@ -230,7 +230,7 @@ fn get_lines(program_code : &str) -> Result<Vec<InterimLine>, CodeError> {
         }
         match line.instr {
             Some(_) => {
-                check_line(&line, line_index as u16)?;
+                check_line(&line, line_index)?;
                 lines.push(line);
                 line = InterimLine::new();
             },

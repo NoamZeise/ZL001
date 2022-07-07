@@ -4,6 +4,7 @@ const TEST_EQUAL : i16 = 0b001;
 const TEST_LESS_THAN : i16 = 0b010;
 const TEST_GREATER_THAN : i16 = 0b100;
 
+/// Simulates a fake assembly language program, made up of lines of instructions
 pub struct Program {
     code : Vec<Line>,
     pc : i16,
@@ -11,9 +12,11 @@ pub struct Program {
     r2 : i16,
     rt : i16,
     halted : bool,
+    last_line : usize,
 }
 
 impl Program {
+    /// make a program from source code, returns a code error and the line where the error occured if there is a syntax issue
     pub fn new(program_code : &str) -> Result<Self, CodeError> {
         Ok(Program {
             code : get_program_instructions(program_code)?,
@@ -22,10 +25,18 @@ impl Program {
             r2 : 0,
             rt : 0,
             halted : false,
+            last_line : 0,
         })
     }
 
-    fn step(&mut self) {
+    pub fn blank() -> Self {
+        Program {
+            code: vec![Line {  instr: Instruction::HLT, op1 : None, op2: None, op3: None}],
+            pc: 0, r1: 0, r2: 0, rt: 0, halted: true, last_line : 0,
+        }
+    }
+
+    pub fn step(&mut self) {
         if self.halted { return }
         
         let current_line = &self.code[self.pc as usize];
@@ -56,17 +67,17 @@ impl Program {
                 self.pc = self.get_operand_value(current_line.op1.unwrap());
             }
             Instruction::BEQ => {
-                if (self.rt | TEST_EQUAL) != 0 {
+                if (self.rt & TEST_EQUAL) != 0 {
                     self.pc = self.get_operand_value(current_line.op1.unwrap());
                 }
             }
             Instruction::BGT => {
-                if (self.rt | TEST_GREATER_THAN) != 0 {
+                if (self.rt & TEST_GREATER_THAN) != 0 {
                     self.pc = self.get_operand_value(current_line.op1.unwrap());
                 }
             }
             Instruction::BLT => {
-                if (self.rt | TEST_LESS_THAN) != 0 {
+                if (self.rt & TEST_LESS_THAN) != 0 {
                     self.pc = self.get_operand_value(current_line.op1.unwrap());
                 }
             }
@@ -84,7 +95,7 @@ impl Program {
         }
     }
 
-    fn get_register_value(&self, reg : Register) -> i16 {
+    pub fn get_register_value(&self, reg : Register) -> i16 {
         match reg {
             Register::PC => self.pc,
             Register::R1 => self.r1,
@@ -101,7 +112,14 @@ impl Program {
             Register::RT => self.rt = value,
         }
     }
-        
+
+    pub fn halted(&self) -> bool {
+        self.halted
+    }
+
+    pub fn get_last_line(&self) -> Line {
+        self.code[self.last_line].clone()
+    }
 }
 
 fn math_instruction(instr : Instruction, op1 : i16, op2 : i16) -> i16 {

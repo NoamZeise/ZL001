@@ -53,6 +53,7 @@ impl Input {
 }
 
 /// Holds character typed that frame, and the state of some useful buttons for typing
+#[derive(Copy, Clone)]
 pub struct Typing {
     pub character : Option<char>,
     pub backspace : bool,
@@ -63,6 +64,8 @@ pub struct Typing {
     pub v         : bool,
     pub z         : bool,
     pub y         : bool,
+    pub s         : bool,
+    pub l         : bool,
     pub up        : bool,
     pub down      : bool,
     pub left      : bool,
@@ -82,6 +85,8 @@ impl Typing {
             v        : false,
             z        : false,
             y        : false,
+            s        : false,
+            l        : false,
             up       : false,
             down     : false,
             left     : false,
@@ -125,6 +130,8 @@ impl Typing {
                        Scancode::V => self.v = key_down,
                        Scancode::Z => self.z = key_down,
                        Scancode::Y => self.y = key_down,
+                       Scancode::S => self.s = key_down,
+                       Scancode::L => self.l = key_down,
                        _ => {}
                    }
                 }
