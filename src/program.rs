@@ -72,7 +72,8 @@ impl Program {
             }
             Instruction::HLT => {
                 self.halted = true;
-            }
+            },
+            Instruction::NOP => (),
        } 
     }
 

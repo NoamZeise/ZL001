@@ -11,6 +11,7 @@ pub enum Instruction {
     BEQ,
     BGT,
     BLT,
+    NOP,
     HLT,
 }
 
@@ -109,6 +110,7 @@ fn get_instruction(text: &str) -> Result<Instruction, ()> {
                             "BEQ" => Ok(Instruction::BEQ),
                             "BGT" => Ok(Instruction::BGT),
                             "BLT" => Ok(Instruction::BLT),
+                            "NOP" => Ok(Instruction::NOP),
                             "HLT" => Ok(Instruction::HLT),
                             _     => Err(())
     }
@@ -121,7 +123,8 @@ fn check_line(line : &InterimLine, line_index : u16) -> Result<(), CodeError> {
         } else {  Ok(()) }
     } else {
         match line.instr.unwrap() {
-            Instruction::HLT => if line.op1.is_some() || line.op2.is_some() || line.op3.is_some() {
+            Instruction::HLT |
+            Instruction::NOP => if line.op1.is_some() || line.op2.is_some() || line.op3.is_some() {
                                     Err(CodeError::TooManyOps(line_index))
                                 } else {
                                     Ok(())
@@ -196,9 +199,14 @@ fn get_lines(program_code : &str) -> Result<Vec<InterimLine>, CodeError> {
                 //add lable or instruction
                 None => line.instr = match get_instruction(w) {
                     Err(_) => {
-                        if line.lable.is_some() || !w.ends_with(":") {
+                        if !w.ends_with(":") {
                             return Err(CodeError::UnknownInst(line_index as u16));
                         } else {
+                            if line.lable.is_some() {
+                                line.instr = Some(Instruction::NOP);
+                                lines.push(line);
+                                line = InterimLine::new();   
+                            }
                             line.lable = Some(w[0..w.len()-1].to_string());
                             None
                         }
@@ -339,6 +347,24 @@ HLT
         let final_lines = to_final_lines(lines).unwrap();
         assert!(matches!(final_lines[4].op1.as_ref().unwrap(), Operand::Direct(5)));
         assert!(matches!(final_lines[0].op3.as_ref().unwrap(), Operand::Reg(Register::R1)));
+    }
+
+    #[test]
+    fn parse_into_lines_test_empty_lable() {
+        let code =
+"
+ADD #10 #0 R1
+ADD #12 #0 R2
+ADD R1 R2 R1
+lable1:
+lable2:
+CMP R1 R2
+BGT end
+HLT
+end:
+";
+
+        let lines = get_lines(code).unwrap();
     }
 
 }
