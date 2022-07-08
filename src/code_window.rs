@@ -9,16 +9,23 @@ use std::iter::Iterator;
 const TEXT_HEIGHT : u32 = 25;
 const BACKSPACE_DELAY : f64 = 0.6;
 const BACKSPACE_REPEAT_SPEED : f64 = 0.05;
+const CURSOR_BLINK_DELAY : f64 = 1.2;
+const CURSOR_BLINK_DURATION : f64 = 0.6;
+
 
 pub struct CodeWindow<'a> {
     code : String,
+    code_index : usize,
     code_lines : Vec<String>,
     line_draws : Vec<TextDraw<'a>>,
     code_changed : bool,
     since_backspace : f64,
     backspace_pressed : bool,
     enter_pressed : bool,
+    cursor_blink_timer : f64,
+    cursor_blink_updated : bool,
     mono_font : Font,
+    prev_input : Typing,
 }
 
 
@@ -26,29 +33,96 @@ impl<'a> CodeWindow<'a> {
     pub fn new(mono_font : Font) -> Self {
         CodeWindow {
             code: String::new(),
+            code_index: 0,
             code_lines: Vec::new(),
             line_draws: Vec::new(),
             since_backspace : BACKSPACE_DELAY,
             backspace_pressed : false,
             enter_pressed : false,
+            cursor_blink_timer : 0.0,
+            cursor_blink_updated : false,
             code_changed : false,
             mono_font,
+            prev_input: Typing::new(),
         }
     }
 
     pub fn update(&mut self, frame_elapsed: f64, typing: &mut Typing) {
         self.code_changed = false;
         self.since_backspace += frame_elapsed;
-        if !typing.ctrl  && !typing.backspace && !typing.enter {
+        self.cursor_blink_timer += frame_elapsed;
+        if self.cursor_blink_timer > CURSOR_BLINK_DELAY {
+            self.cursor_blink_timer = 0.0;
+            self.code_changed = true;
+            self.cursor_blink_updated = false;
+        } else if self.cursor_blink_timer > CURSOR_BLINK_DURATION && !self.cursor_blink_updated{
+            self.cursor_blink_updated = true;
+            self.code_changed = true;
+        }
+        if !typing.ctrl  && !typing.backspace && !typing.enter && !typing.tab {
             self.since_backspace = BACKSPACE_DELAY;
             self.backspace_pressed = false;
             self.enter_pressed = false;
             match typing.character {
                 Some(c) => {
                     self.code_changed = true;
-                    self.code.push(c)
+                    self.code.insert(self.code_index, c);
+                    self.code_index+=1;
                 },
-                None => (),
+                None => {
+                        if typing.left && !self.prev_input.left {
+                            if self.code_index != 0 {
+                                self.code_index-=1;
+                                self.code_changed = true;
+                            }
+                        }
+                        if typing.right && !self.prev_input.right {
+                            if self.code_index != self.code.len() {
+                                self.code_changed = true;
+                                self.code_index+=1;
+                            }
+                        }
+                    if typing.up && !self.prev_input.up {
+                        let mut line_offset = self.code_index;
+                        while line_offset != 0 {
+                            line_offset -= 1;
+                            if self.code.chars().nth(line_offset).unwrap() == '\n' {
+                                break;
+                            }
+                        }
+                        if line_offset != 0 {
+                        let line_end_index = line_offset;
+                        let mut line_offset = self.code_index - line_offset - 1;
+                        println!("line offset: {}", line_offset);
+                            let mut end_of_last = line_end_index;
+                            let mut line_len = 0;
+                        while end_of_last != 0 {
+                            end_of_last -= 1;
+                            line_len += 1;
+                            if self.code.chars().nth(end_of_last).unwrap() == '\n' {
+                                break;
+                            }
+                        }
+                            if end_of_last == 0 {
+                                line_offset -= 1;
+                            }
+                            if line_offset > line_len {
+                                line_offset = line_len;
+                            } else {
+                                line_offset += 1;
+                            }
+                            self.code_index = end_of_last + line_offset;
+                            self.code_changed = true;
+                        } else {
+                            self.code_index = 0;
+                            self.code_changed = true;
+                        }
+                    }
+                    if typing.down && !self.prev_input.down {
+                        
+                    }
+                    
+                },
             }
             typing.used_character();
         } else {
@@ -64,7 +138,8 @@ impl<'a> CodeWindow<'a> {
             if typing.enter && !self.enter_pressed {
                 self.enter_pressed = true;
                 self.code_changed = true;
-                self.code.push('\n');
+                self.code.insert(self.code_index, '\n');
+                self.code_index+=1;
             }
             if typing.backspace {
                 if self.since_backspace > BACKSPACE_DELAY {
@@ -75,14 +150,26 @@ impl<'a> CodeWindow<'a> {
                     } else {
                         self.since_backspace = BACKSPACE_DELAY - BACKSPACE_REPEAT_SPEED;
                     }
-                    self.code.pop();
+                    if self.code_index != 0 {
+                        self.code.remove(self.code_index - 1);
+                        self.code_index-=1;
+                    }
                 }
+            } else if typing.tab && !self.prev_input.tab {
+                self.code.insert_str(self.code_index, &"    ");
+                self.code_index+=4;
+                self.code_changed = true;
             }
         }
 
         if self.code_changed {
-            self.code_lines = get_code_lines(&self.code.as_str());
+            let mut cursor = '█';
+            if self.cursor_blink_timer < CURSOR_BLINK_DURATION {
+                cursor = ' ';
+            }
+            self.code_lines = get_code_lines(&self.code.as_str(), self.code_index, cursor);
         }
+        self.prev_input = *typing;
     }
 
     pub fn set_draw_lines<T>(&mut self, font_manager: &'a FontManager<T>) -> Result<(), String>{
@@ -114,10 +201,20 @@ impl<'a> CodeWindow<'a> {
     }
 }
 
-fn get_code_lines(code : &str) -> Vec<String> {
+fn get_code_lines(code : &str, cursor_index : usize, cursor : char) -> Vec<String> {
     let mut lines : Vec<String> = Vec::new();
+    let mut index = 0;
+    let mut prev_index = 0;
+    let mut placed_cursor = false;
     for l in code.split('\n') {
-        lines.push(l.to_string());
+        index += l.len() + 1;
+        let mut l = l.to_string();
+        if index > cursor_index && !placed_cursor {
+            l.insert(cursor_index - prev_index, cursor);
+            placed_cursor = true;
+        }
+        lines.push(l);
+        prev_index = index;    
     }
 
     lines

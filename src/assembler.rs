@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::Inspect};
+use std::collections::HashMap;
 
 #[derive(Copy, Clone)]
 pub enum Instruction {
