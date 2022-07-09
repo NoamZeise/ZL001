@@ -83,43 +83,35 @@ impl<'a> CodeWindow<'a> {
                             }
                         }
                     if typing.up && !self.prev_input.up {
-                        let mut line_offset = self.code_index;
-                        while line_offset != 0 {
-                            line_offset -= 1;
-                            if self.code.chars().nth(line_offset).unwrap() == '\n' {
-                                break;
-                            }
+                        let line_offset = get_line_start_index(&self.code, self.code_index);
+                        let last_line_offset = get_line_start_index(&self.code, line_offset);
+                        let mut line_off = self.code_index - line_offset;
+                        if last_line_offset == 0 && line_off != 0 {
+                            line_off -= 1;
                         }
-                        if line_offset != 0 {
-                        let line_end_index = line_offset;
-                        let mut line_offset = self.code_index - line_offset - 1;
-                        println!("line offset: {}", line_offset);
-                            let mut end_of_last = line_end_index;
-                            let mut line_len = 0;
-                        while end_of_last != 0 {
-                            end_of_last -= 1;
-                            line_len += 1;
-                            if self.code.chars().nth(end_of_last).unwrap() == '\n' {
-                                break;
-                            }
+                        let last_line_len = line_offset - last_line_offset;
+                        if last_line_len < line_off {
+                            line_off = last_line_len;
                         }
-                            if end_of_last == 0 {
-                                line_offset -= 1;
-                            }
-                            if line_offset > line_len {
-                                line_offset = line_len;
-                            } else {
-                                line_offset += 1;
-                            }
-                            self.code_index = end_of_last + line_offset;
-                            self.code_changed = true;
-                        } else {
-                            self.code_index = 0;
-                            self.code_changed = true;
-                        }
+                        self.code_index = last_line_offset + line_off;
+                        self.code_changed = true;
                     }
                     if typing.down && !self.prev_input.down {
-                        
+                        let line_start_i = get_line_start_index(&self.code, self.code_index);
+                        let next_line_start_i = get_next_line_index(&self.code, self.code_index);
+                        let second_line_start_i = get_next_line_index(&self.code, next_line_start_i + 1);
+                        let mut line_off = self.code_index - line_start_i;
+                        let next_line_length = second_line_start_i - next_line_start_i;
+                        if next_line_length < line_off {
+                            line_off = next_line_length;
+                        }
+                        if line_start_i == 0  && line_off != next_line_length { line_off += 1;}
+                        if self.code.len() != 0 && next_line_start_i >= self.code.len() - 1 {
+                            line_off = 1;
+                        }
+                        self.code_index = next_line_start_i + line_off;
+                        if self.code_index > self.code.len() { self.code_index = self.code.len(); }
+                        self.code_changed = true;
                     }
                     
                 },
@@ -218,4 +210,27 @@ fn get_code_lines(code : &str, cursor_index : usize, cursor : char) -> Vec<Strin
     }
 
     lines
+}
+
+fn get_line_start_index(code : &str, index : usize) -> usize {
+    let mut index = index;
+    while index > 0 {
+        index -= 1;
+        if code.chars().nth(index).unwrap() == '\n' {
+            break;
+        }
+    }
+    index
+}
+
+fn get_next_line_index(code : &str, index : usize) -> usize {
+    if code.len() == 0 { return 0; }
+    let mut index = index;
+    while index <= code.len() - 1 {
+        if code.chars().nth(index).unwrap() == '\n' {
+            break;
+        }
+        index += 1;
+    }
+    index
 }
