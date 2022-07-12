@@ -23,10 +23,10 @@ pub struct Program {
     r1 : i16,
     r2 : i16,
     rt : i16,
+    rio : [i16 ; IO_REGISTER_COUNT],
+    active_io_reg : usize,
     out_to_read : bool,
-    ro : i16,
     in_to_read : bool,
-    ri : i16,
     temp_state : Option<ProgramLineState>,
     halted : bool,
     last_line : usize,
@@ -41,10 +41,10 @@ impl Program {
             r1 : 0,
             r2 : 0,
             rt : 0,
+            active_io_reg : 0,
             out_to_read : false,
-            ro : 0,
+            rio : [0 ; IO_REGISTER_COUNT],
             in_to_read : false,
-            ri : 0,
             temp_state : None,
             halted : false,
             last_line : 0,
@@ -54,14 +54,17 @@ impl Program {
     pub fn blank() -> Self {
         Program {
             code: vec![Line {  instr: Instruction::HLT, op1 : None, op2: None, op3: None}],
-            pc: 0, r1: 0, r2: 0, rt: 0, out_to_read : false, ro : 0, in_to_read : false, ri : 0, temp_state : None,  halted: true, last_line : 0,
+            pc: 0, r1: 0, r2: 0, rt: 0, active_io_reg : 0, out_to_read : false,
+            in_to_read : false, rio : [0 ; IO_REGISTER_COUNT], temp_state : None,  halted: true, last_line : 0,
         }
     }
 
-    pub fn read_out(&mut self) -> Option<i16> {
-        if self.out_to_read {
+    pub fn read_out(&mut self, index : usize) -> Option<i16> {
+        assert!(index < IO_REGISTER_COUNT, "io register out of range!");
+        if self.out_to_read && self.active_io_reg == index {
             self.out_to_read = false;
-            Some(self.ro)
+            self.active_io_reg = IO_REGISTER_COUNT;
+            Some(self.rio[index])
         } else {
             None
         }
@@ -71,10 +74,12 @@ impl Program {
         self.out_to_read
     }
 
-    pub fn read_in(&mut self, value : i16) -> Result<(), ()> {
-        if self.in_to_read {
-            self.ri = value;
+    pub fn read_in(&mut self, value : i16, index : usize) -> Result<(), ()> {
+        assert!(index < IO_REGISTER_COUNT, "io register out of range!");
+        if self.in_to_read  && self.active_io_reg == index {
+            self.rio[index] = value;
             self.in_to_read = false;
+            self.active_io_reg = IO_REGISTER_COUNT;
             Ok(())
         } else {
             Err(())
@@ -87,6 +92,10 @@ impl Program {
 
     pub fn step(&mut self) {
         if self.halted || self.out_to_read || self.in_to_read { return }
+        if self.pc as usize >= self.code.len() {
+            self.halted = true;
+            return;
+        }
         
         let current_line = self.code[self.pc as usize];
         self.pc += 1;
@@ -175,13 +184,19 @@ impl Program {
                 if op1.is_none() || op2.is_none() {
                     if self.temp_state.is_some() {
                         if op1.is_none() {
-                            op1 = Some(self.ri);
+                            
+                            op1 = Some(self.rio[get_io_index(current_line.op1.unwrap())]);
                         } else {
-                            op2 = Some(self.ri);
+                            op2 = Some(self.rio[get_io_index(current_line.op2.unwrap())]);
                         }
                     }
                     
                     if op1.is_none() || op2.is_none() {
+                        if op1.is_none() {
+                            self.active_io_reg = get_io_index(current_line.op1.unwrap());
+                        } else {
+                             self.active_io_reg = get_io_index(current_line.op2.unwrap());
+                        }
                         self.in_to_read = true;
                         self.pc -= 1;
                         self.temp_state = Some(ProgramLineState::new(op1, op2));
@@ -197,8 +212,7 @@ impl Program {
             Register::R1 => Some(self.r1),
             Register::R2 => Some(self.r2),
             Register::RT => Some(self.rt),
-            Register::RO => panic!("tried to read from out register"),
-            Register::RI => None,
+            Register::RIO(_) => None,
         }
     }
 
@@ -208,11 +222,11 @@ impl Program {
             Register::R1 => self.r1 = value,
             Register::R2 => self.r2 = value,
             Register::RT => self.rt = value,
-            Register::RO => {
+            Register::RIO(io_index) => {
                 self.out_to_read = true;
-                self.ro = value
+                self.active_io_reg = io_index;
+                self.rio[io_index] = value
             },
-            Register::RI => panic!("tried to set in-register"),
         }
     }
 
@@ -232,5 +246,12 @@ fn math_instruction(instr : Instruction, op1 : i16, op2 : i16) -> i16 {
         Instruction::MUL => op1 * op2,
         Instruction::DIV => op1 / op2,
         _ => panic!("only acccepts math instructions!"),
+    }
+}
+
+fn get_io_index(op : Operand) -> usize {
+    match op {
+        Operand::Reg(Register::RIO(index)) => index,
+        _ => panic!("tried to get index of non io register!")
     }
 }

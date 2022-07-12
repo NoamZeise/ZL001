@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-#[derive(Copy, Clone)]
+pub const IO_REGISTER_COUNT : usize = 4;
+
+#[derive(Copy, Clone, Debug)]
 pub enum Instruction {
     ADD,
     SUB,
@@ -15,17 +17,16 @@ pub enum Instruction {
     HLT,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Register {
     PC,
     R1,
     R2,
     RT,
-    RO,
-    RI,
+    RIO(usize),
 }
 
-
+#[derive(Debug)]
 enum InterimOp {
     Reg(Register),
     Direct(i16),
@@ -45,8 +46,10 @@ pub enum CodeError {
     InstAfterLable(usize),
     TooFewOps(usize),
     InvalidOp(usize),
+    OutOfRangeIO(usize),
 }
 
+#[derive(Debug)]
 struct InterimLine {
     lable : Option<String>,
     instr : Option<Instruction>,
@@ -89,10 +92,20 @@ fn get_operand(word : &str, line_index : usize) -> Result<InterimOp, CodeError> 
             "R1" => InterimOp::Reg(Register::R1),
             "R2" => InterimOp::Reg(Register::R2),
             "RT" => InterimOp::Reg(Register::RT),
-            "RO" => InterimOp::Reg(Register::RO),
-            "RI" => InterimOp::Reg(Register::RI),
             _ => {
-                if word.starts_with("#") {
+                if word.to_uppercase().starts_with("IO") {
+                    match word.split_at(2).1.parse::<u16>() {
+                        Ok(n) => {
+                            if n as usize >= IO_REGISTER_COUNT {
+                                return Err(CodeError::OutOfRangeIO(line_index));
+                            }
+                            InterimOp::Reg(Register::RIO(n as usize))
+                        },
+                        _ => { return Err(CodeError::UnknownNumber(line_index));
+                        }
+                    }
+                }
+                else if word.starts_with("#") {
                     match word.split_at(1).1.parse::<u16>() {
                          Ok(n) => InterimOp::Direct(n as i16),
                          _ => { return Err(CodeError::UnknownNumber(line_index)); }
@@ -155,9 +168,7 @@ fn check_line(line : &InterimLine, line_index : usize) -> Result<(), CodeError> 
             Instruction::CMP => {
                         if line.op1.is_none() || line.op2.is_none() {
                             return Err(CodeError::TooFewOps(line_index));
-                        }
-                        is_out_register(&line.op1, line_index)?;
-                        is_out_register(&line.op2, line_index)?;                
+                        }               
                         if line.op3.is_some() {
                             return Err(CodeError::TooManyOps(line_index));
                         }
@@ -170,26 +181,16 @@ fn check_line(line : &InterimLine, line_index : usize) -> Result<(), CodeError> 
                 if line.op1.is_none() || line.op2.is_none()  {
                     return Err(CodeError::TooFewOps(line_index));
                 }
-                is_out_register(&line.op1, line_index)?;
-                is_out_register(&line.op2, line_index)?;
                 if line.op3.is_some()  {
                     match line.op3.as_ref().unwrap() {
                         InterimOp::Lable(..) |
                         InterimOp::Direct(..) => Err(CodeError::InvalidOp(line_index)),
-                        InterimOp::Reg(Register::RI) => Err(CodeError::InvalidOp(line_index)),
                         _ => Ok(()),
                     }
                 } else { Err(CodeError::TooFewOps(line_index)) }
             }
         }
     }
-}
-
-fn is_out_register(op : &Option<InterimOp>, line_index : usize) -> Result<(), CodeError> {
-match op {
-                    Some(InterimOp::Reg(Register::RO)) => return Err(CodeError::InvalidOp(line_index)),
-                    _ => Ok(()),
-                }
 }
 
 fn get_lines(program_code : &str) -> Result<Vec<InterimLine>, CodeError> {
@@ -388,8 +389,8 @@ end:
         let code =
 "
 ADD #10 #0 RO
-ADD RI #0 R2
-ADD R1 R2 RI
+ADD IO0 #0 R2
+ADD R1 R2 IO9
 HLT
 ";
 
@@ -399,25 +400,59 @@ HLT
         fn test_io_registers2() {
         let code =
 "
-ADD #10 #0 RO
-ADD RI #0 R2
-CMP RO RI
+ADD #10 #0 IO1
+ADD IO3 #0 R2
+CMP IO1 IO7
 HLT
 ";
 
-        assert!(get_lines(code).is_err());
+        let lines = get_lines(code);
+                if lines.is_err() {
+                    let lines = lines.unwrap_err();
+                    println!("error {:?}", lines);
+                    assert!(matches!(lines, CodeError::OutOfRangeIO(3)))
+                } else {
+                    panic!("should fail");
+                }
         }
     #[test]
             fn test_io_registers3() {
         let code =
 "
-ADD #10 #0 RO
-ADD RI #0 R2
-CMP RI RI
+ADD #10 #0 IO0
+ADD IO0 #0 R2
+CMP IO1 IO2
 HLT
 ";
 
-        assert!(get_lines(code).is_ok());
+        let lines = get_lines(code);
+                if lines.is_err() {
+                    println!("error {}", stringify!(lines.unwrap_err()));
+                    panic!("error");
+                    
+                }
+            }
+
+     #[test]
+            fn test_io_registers4() {
+        let code =
+"
+ADD IO0 #0 r1
+loop:
+    sub r1 #1 r1
+    add r1 #0 io1
+    cmp r1 #0
+    bgt loop
+hlt
+";
+
+                let lines = get_lines(code);
+                if lines.is_err() {
+                    let lines = lines.unwrap_err();
+                    println!("error {:?}", lines);
+                    panic!("should be OK");
+                }
+            
     }
 
 }

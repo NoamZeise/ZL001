@@ -100,14 +100,14 @@ pub fn main() -> Result<(), String> {
         }
 
         if typing.ctrl && typing.up && ! prev_typing.up {
-            match code.read_out() {
+            match code.read_out(1) {
                 Some(v) => println!("read {} from out register", v),
                 None => println!("no value to read out"),
             }
         }
 
          if typing.ctrl && typing.down && ! prev_typing.down {
-            match code.read_in(10) {
+            match code.read_in(10, 2) {
                 Ok(_) => println!("accepted a value to in register"),
                 Err(_) => println!("did not accept a value to in register"),
             }
