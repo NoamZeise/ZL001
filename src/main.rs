@@ -7,6 +7,7 @@ use zl001::{TextureManager, FontManager};
 use zl001::input::{Input, Typing};
 use zl001::code_window::CodeWindow;
 use zl001::program::Program;
+use zl001::geometry::Vec2;
 
 use std::path::Path;
 use std::time::Instant;
@@ -33,7 +34,7 @@ pub fn main() -> Result<(), String> {
     let mut font_manager = FontManager::new(&ttf_context, &texture_creator)?;
 
     let mono_font = font_manager.load_font(Path::new("textures/FiraCode-Light.ttf"))?;
-    let mut code_window = CodeWindow::new(mono_font);
+    let mut code_window = CodeWindow::new(mono_font, Vec2::new(10.0, 5.0));
     let mut code = Program::blank();
     canvas.set_draw_color(Color::RGB(100, 100, 100));
 
@@ -89,12 +90,29 @@ pub fn main() -> Result<(), String> {
             if code.halted() {
                 println!("Program Halted\n");
             } else {
-                println!("PC: {}", code.get_register_value(zl001::assembler::Register::PC));
-                println!("R1: {}", code.get_register_value(zl001::assembler::Register::R1));
-                println!("R2: {}", code.get_register_value(zl001::assembler::Register::R2));
-                println!("RT: {}\n", code.get_register_value(zl001::assembler::Register::RT));
+                println!("PC: {}", code.get_register_value(zl001::assembler::Register::PC).unwrap());
+                println!("R1: {}", code.get_register_value(zl001::assembler::Register::R1).unwrap());
+                println!("R2: {}", code.get_register_value(zl001::assembler::Register::R2).unwrap());
+                println!("RT: {}", code.get_register_value(zl001::assembler::Register::RT).unwrap());
+                println!("accepting RI: {}", code.read_in_ready());
+                println!("waiting   RO: {}\n", code.read_out_ready());
             }
         }
+
+        if typing.ctrl && typing.up && ! prev_typing.up {
+            match code.read_out() {
+                Some(v) => println!("read out {}", v),
+                None => println!("no value to read out"),
+            }
+        }
+
+         if typing.ctrl && typing.down && ! prev_typing.down {
+            match code.read_in(10) {
+                Ok(_) => println!("accepted a value to in register"),
+                Err(_) => println!("did not accept a value to in register"),
+            }
+        }
+        
         
         prev_typing = typing;
         prev_frame = start_time.elapsed().as_secs_f64();

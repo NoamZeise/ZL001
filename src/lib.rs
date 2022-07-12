@@ -40,7 +40,7 @@ pub struct GameObject {
 impl GameObject {
     pub fn new(texture: resource::Texture) -> Self {
         GameObject {
-            draw_rect: Rect::new(0.0, 0.0, texture.width as f64, texture.height as f64),
+            draw_rect: Rect::new(0.0, 0.0, texture.width as f64, texture.height     as f64),
             tex_rect : None,
             tex: texture,
         }

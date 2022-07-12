@@ -18,6 +18,7 @@ pub struct CodeWindow<'a> {
     code_index : usize,
     code_lines : Vec<String>,
     line_draws : Vec<TextDraw<'a>>,
+    position : Vec2,
     code_changed : bool,
     since_backspace : f64,
     backspace_pressed : bool,
@@ -30,12 +31,13 @@ pub struct CodeWindow<'a> {
 
 
 impl<'a> CodeWindow<'a> {
-    pub fn new(mono_font : Font) -> Self {
+    pub fn new(mono_font : Font, position : Vec2) -> Self {
         CodeWindow {
             code: String::new(),
             code_index: 0,
             code_lines: Vec::new(),
             line_draws: Vec::new(),
+            position,
             since_backspace : BACKSPACE_DELAY,
             backspace_pressed : false,
             enter_pressed : false,
@@ -174,7 +176,7 @@ impl<'a> CodeWindow<'a> {
                             &self.mono_font,
                             l,
                             TEXT_HEIGHT,
-                            Vec2::new(0.0, ((TEXT_HEIGHT + 2) as usize * i) as f64)
+                            Vec2::new(self.position.x, self.position.y + ((TEXT_HEIGHT + 2) as usize * i) as f64)
                             )?
                     );
                 }

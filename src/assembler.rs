@@ -21,6 +21,8 @@ pub enum Register {
     R1,
     R2,
     RT,
+    RO,
+    RI,
 }
 
 
@@ -87,6 +89,8 @@ fn get_operand(word : &str, line_index : usize) -> Result<InterimOp, CodeError> 
             "R1" => InterimOp::Reg(Register::R1),
             "R2" => InterimOp::Reg(Register::R2),
             "RT" => InterimOp::Reg(Register::RT),
+            "RO" => InterimOp::Reg(Register::RO),
+            "RI" => InterimOp::Reg(Register::RI),
             _ => {
                 if word.starts_with("#") {
                     match word.split_at(1).1.parse::<u16>() {
@@ -152,6 +156,8 @@ fn check_line(line : &InterimLine, line_index : usize) -> Result<(), CodeError> 
                         if line.op1.is_none() || line.op2.is_none() {
                             return Err(CodeError::TooFewOps(line_index));
                         }
+                        is_out_register(&line.op1, line_index)?;
+                        is_out_register(&line.op2, line_index)?;                
                         if line.op3.is_some() {
                             return Err(CodeError::TooManyOps(line_index));
                         }
@@ -164,16 +170,26 @@ fn check_line(line : &InterimLine, line_index : usize) -> Result<(), CodeError> 
                 if line.op1.is_none() || line.op2.is_none()  {
                     return Err(CodeError::TooFewOps(line_index));
                 }
+                is_out_register(&line.op1, line_index)?;
+                is_out_register(&line.op2, line_index)?;
                 if line.op3.is_some()  {
                     match line.op3.as_ref().unwrap() {
                         InterimOp::Lable(..) |
                         InterimOp::Direct(..) => Err(CodeError::InvalidOp(line_index)),
+                        InterimOp::Reg(Register::RI) => Err(CodeError::InvalidOp(line_index)),
                         _ => Ok(()),
                     }
                 } else { Err(CodeError::TooFewOps(line_index)) }
             }
         }
     }
+}
+
+fn is_out_register(op : &Option<InterimOp>, line_index : usize) -> Result<(), CodeError> {
+match op {
+                    Some(InterimOp::Reg(Register::RO)) => return Err(CodeError::InvalidOp(line_index)),
+                    _ => Ok(()),
+                }
 }
 
 fn get_lines(program_code : &str) -> Result<Vec<InterimLine>, CodeError> {
@@ -364,7 +380,44 @@ HLT
 end:
 ";
 
-        let lines = get_lines(code).unwrap();
+        let lines = get_lines(code);
+        assert!(lines.is_ok());
+    }
+    #[test]
+        fn test_io_registers() {
+        let code =
+"
+ADD #10 #0 RO
+ADD RI #0 R2
+ADD R1 R2 RI
+HLT
+";
+
+        assert!(get_lines(code).is_err());
+        }
+    #[test]
+        fn test_io_registers2() {
+        let code =
+"
+ADD #10 #0 RO
+ADD RI #0 R2
+CMP RO RI
+HLT
+";
+
+        assert!(get_lines(code).is_err());
+        }
+    #[test]
+            fn test_io_registers3() {
+        let code =
+"
+ADD #10 #0 RO
+ADD RI #0 R2
+CMP RI RI
+HLT
+";
+
+        assert!(get_lines(code).is_ok());
     }
 
 }
