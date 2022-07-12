@@ -36,7 +36,7 @@ pub fn main() -> Result<(), String> {
     let mono_font = font_manager.load_font(Path::new("textures/FiraCode-Light.ttf"))?;
     let mut code_window = CodeWindow::new(mono_font, Vec2::new(10.0, 5.0));
     let mut code = Program::blank();
-    canvas.set_draw_color(Color::RGB(100, 100, 100));
+    canvas.set_draw_color(Color::RGB(45, 59, 55));
 
     video_subsystem.text_input().start();
 
@@ -101,7 +101,7 @@ pub fn main() -> Result<(), String> {
 
         if typing.ctrl && typing.up && ! prev_typing.up {
             match code.read_out() {
-                Some(v) => println!("read out {}", v),
+                Some(v) => println!("read {} from out register", v),
                 None => println!("no value to read out"),
             }
         }

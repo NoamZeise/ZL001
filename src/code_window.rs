@@ -4,6 +4,8 @@ use crate::FontManager;
 use crate::resource::Font;
 use crate::geometry::Vec2;
 
+use sdl2::pixels::Color;
+
 use std::iter::Iterator;
 
 const TEXT_HEIGHT : u32 = 25;
@@ -11,7 +13,7 @@ const BACKSPACE_DELAY : f64 = 0.6;
 const BACKSPACE_REPEAT_SPEED : f64 = 0.05;
 const CURSOR_BLINK_DELAY : f64 = 1.2;
 const CURSOR_BLINK_DURATION : f64 = 0.6;
-
+const CODE_WINDOW_TEXT_COLOUR : Color = Color::RGB(109, 205, 18);
 
 pub struct CodeWindow<'a> {
     code : String,
@@ -176,7 +178,8 @@ impl<'a> CodeWindow<'a> {
                             &self.mono_font,
                             l,
                             TEXT_HEIGHT,
-                            Vec2::new(self.position.x, self.position.y + ((TEXT_HEIGHT + 2) as usize * i) as f64)
+                            Vec2::new(self.position.x, self.position.y + ((TEXT_HEIGHT + 2) as usize * i) as f64),
+                            CODE_WINDOW_TEXT_COLOUR
                             )?
                     );
                 }

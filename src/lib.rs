@@ -142,15 +142,15 @@ impl<'a, T> FontManager<'a, T> {
         })
     }
     /// return a `TextDraw` that has a corrected `rect.width` based on the supplied height and the rendered font
-    pub fn get_draw(&self, font: &resource::Font, text: &str, height : u32) -> Result<TextDraw, String> {
-        self.get_draw_at_vec2(font, text, height, Vec2::new(0.0, 0.0))
+    pub fn get_draw(&self, font: &resource::Font, text: &str, height : u32, colour : Color) -> Result<TextDraw, String> {
+        self.get_draw_at_vec2(font, text, height, Vec2::new(0.0, 0.0), colour)
     }
 
-    pub fn get_draw_at_vec2(&self, font: &resource::Font, text: &str, height : u32, pos: Vec2) -> Result<TextDraw, String> {
+    pub fn get_draw_at_vec2(&self, font: &resource::Font, text: &str, height : u32, pos: Vec2, colour: Color) -> Result<TextDraw, String> {
         if text.len() == 0 { Err("text length should be greater than 0")?; }
         let surface = match self.fonts[font.id]
             .render(text)
-            .blended(Color::RGBA(255, 255, 255, 255)) {
+            .blended(colour) {
                 Ok(s) => s,
                 Err(e) => return Err(e.to_string()),
         };
@@ -173,9 +173,9 @@ impl<'a, T> FontManager<'a, T> {
     }
 
     /// draws the supplied text to the canvas in the supplied font at the given height and position
-    pub fn draw(&self, canvas : &mut Canvas<Window>, font : &resource::Font, text: &str, height : u32, pos : Vec2) -> Result<(), String> {
+    pub fn draw(&self, canvas : &mut Canvas<Window>, font : &resource::Font, text: &str, height : u32, pos : Vec2, colour : Color) -> Result<(), String> {
         if text.len() == 0 { return Ok(()); }
-        let mut tex_draw = self.get_draw(font, text, height)?;
+        let mut tex_draw = self.get_draw(font, text, height, colour)?;
         tex_draw.rect.x = pos.x as i32;
         tex_draw.rect.y = pos.y as i32;
         canvas.copy(&tex_draw.tex, None, tex_draw.rect)
