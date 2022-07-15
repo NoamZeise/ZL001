@@ -13,6 +13,8 @@ pub mod input;
 pub mod code_window;
 pub mod assembler;
 pub mod program;
+pub mod circuit;
+pub mod microcontroller;
 
 
 pub mod resource {
@@ -30,6 +32,7 @@ pub mod resource {
     }
 }
 
+/// holds a `Texture` and some `Rect`s for representing sprites
 #[derive(Clone)]
 pub struct GameObject {
     pub draw_rect : Rect,
@@ -38,6 +41,7 @@ pub struct GameObject {
 }
 
 impl GameObject {
+    /// The draw_rect is automatically the width and height of the supplied `Texture`
     pub fn new(texture: resource::Texture) -> Self {
         GameObject {
             draw_rect: Rect::new(0.0, 0.0, texture.width as f64, texture.height     as f64),
@@ -47,6 +51,7 @@ impl GameObject {
     }
 }
 
+/// stores textures that are referenced by a `resource::Texture` object
 pub struct TextureManager<'a, T> {
     texture_creator : &'a TextureCreator<T>,
     loaded_texture_paths : HashMap<String,  usize>,
@@ -62,7 +67,7 @@ impl<'a, T> TextureManager<'a, T> {
             textures : Vec::new(),
         }
     }
-
+/// load a texture to memory and get a `resource::Texture` object that references it
     pub fn load(&mut self, path : &Path) -> Result<resource::Texture, String> {
         let path_as_string = path.to_string_lossy().to_string();
         let tex_index = match self.loaded_texture_paths.contains_key(&path_as_string) {
@@ -82,7 +87,7 @@ impl<'a, T> TextureManager<'a, T> {
         })
 
     }
-
+/// draw a `GameObject` to the canvas
     pub fn draw(&self, canvas : &mut Canvas<Window>, game_obj: &GameObject) -> Result<(), String> {
         canvas.copy(
             &self.textures[game_obj.tex.id],

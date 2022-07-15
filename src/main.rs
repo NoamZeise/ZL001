@@ -3,14 +3,13 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::image;
 
-use zl001::{TextureManager, FontManager};
+use zl001::{TextureManager, FontManager, GameObject};
 use zl001::input::{Input, Typing};
-use zl001::code_window::CodeWindow;
-use zl001::program::Program;
-use zl001::geometry::Vec2;
+use zl001::circuit::Circuit;
+use zl001::geometry::Rect;
 
-use std::path::Path;
 use std::time::Instant;
+use std::path::Path;
 
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
@@ -29,13 +28,23 @@ pub fn main() -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     let texture_creator = canvas.texture_creator();
-    let _texture_manager = TextureManager::new(&texture_creator);
+    let mut texture_manager = TextureManager::new(&texture_creator);
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
     let mut font_manager = FontManager::new(&ttf_context, &texture_creator)?;
 
     let mono_font = font_manager.load_font(Path::new("textures/FiraCode-Light.ttf"))?;
-    let mut code_window = CodeWindow::new(mono_font, Vec2::new(10.0, 5.0));
-    let mut code = Program::blank();
+    
+    let mut circuit = Circuit::new(
+        mono_font,
+        GameObject::new(
+            texture_manager.load(
+                Path::new("textures/microcontroller.png")
+            )?
+        )
+    );
+    circuit.add_circuit(Rect::new(20.0, 50.0, 100.0, 100.0));
+    circuit.add_circuit(Rect::new(300.0, 50.0, 100.0, 100.0));
+
     canvas.set_draw_color(Color::RGB(45, 59, 55));
 
     video_subsystem.text_input().start();
@@ -43,7 +52,6 @@ pub fn main() -> Result<(), String> {
     let mut event_pump = sdl_context.event_pump()?;
     let mut input = Input::new();
     let mut typing = Typing::new();
-    let mut prev_typing = Typing::new();
     let mut prev_frame : f64 = 0.0;
     'running: loop {
         let start_time = Instant::now();
@@ -63,58 +71,14 @@ pub fn main() -> Result<(), String> {
 
         canvas.clear();
 
-        code_window.set_draw_lines(&font_manager)?;
-        for l in code_window.get_draw_code() {
-            canvas.copy(&l.tex, None, l.rect)?;
-        }
-
+        //draw
+        circuit.draw(&mut canvas, &texture_manager, &font_manager)?;
+        
         canvas.present();
 
-        code_window.update(prev_frame, &mut typing);
+        //update
+        circuit.update(prev_frame, &mut typing);
 
-        if typing.ctrl && typing.l && !prev_typing.l {
-            code = match Program::new(code_window.get_code()) {
-                Ok(c) => {
-                    println!("Code Ok");
-                    c
-                },
-                Err(_) => {
-                    println!("Code Err");
-                    Program::blank()
-                },
-            };
-        }
-
-        if typing.ctrl && typing.s && ! prev_typing.s {
-            code.step();
-            if code.halted() {
-                println!("Program Halted\n");
-            } else {
-                println!("PC: {}", code.get_register_value(zl001::assembler::Register::PC).unwrap());
-                println!("R1: {}", code.get_register_value(zl001::assembler::Register::R1).unwrap());
-                println!("R2: {}", code.get_register_value(zl001::assembler::Register::R2).unwrap());
-                println!("RT: {}", code.get_register_value(zl001::assembler::Register::RT).unwrap());
-                println!("accepting RI: {}", code.read_in_ready());
-                println!("waiting   RO: {}\n", code.read_out_ready());
-            }
-        }
-
-        if typing.ctrl && typing.up && ! prev_typing.up {
-            match code.read_out(1) {
-                Some(v) => println!("read {} from out register", v),
-                None => println!("no value to read out"),
-            }
-        }
-
-         if typing.ctrl && typing.down && ! prev_typing.down {
-            match code.read_in(10, 2) {
-                Ok(_) => println!("accepted a value to in register"),
-                Err(_) => println!("did not accept a value to in register"),
-            }
-        }
-        
-        
-        prev_typing = typing;
         prev_frame = start_time.elapsed().as_secs_f64();
     }
 

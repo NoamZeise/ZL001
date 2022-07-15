@@ -1,3 +1,5 @@
+//! handles the text editor to let the user input code that can be assembled into a `program`
+
 use crate::TextDraw;
 use crate::input::Typing;
 use crate::FontManager;
@@ -15,6 +17,7 @@ const CURSOR_BLINK_DELAY : f64 = 1.2;
 const CURSOR_BLINK_DURATION : f64 = 0.6;
 const CODE_WINDOW_TEXT_COLOUR : Color = Color::RGB(109, 205, 18);
 
+/// Holds a `String` of code as well as info on user input
 pub struct CodeWindow<'a> {
     code : String,
     code_index : usize,
@@ -33,6 +36,7 @@ pub struct CodeWindow<'a> {
 
 
 impl<'a> CodeWindow<'a> {
+    /// `position` represents an offset from the top left when drawing the text to the screen
     pub fn new(mono_font : Font, position : Vec2) -> Self {
         CodeWindow {
             code: String::new(),
@@ -50,7 +54,7 @@ impl<'a> CodeWindow<'a> {
             prev_input: Typing::new(),
         }
     }
-
+/// update code text with user input
     pub fn update(&mut self, frame_elapsed: f64, typing: &mut Typing) {
         self.code_changed = false;
         self.since_backspace += frame_elapsed;
@@ -167,7 +171,7 @@ impl<'a> CodeWindow<'a> {
         }
         self.prev_input = *typing;
     }
-
+    /// update a list of `TextDraw`s to reflect the current state of the inputted code
     pub fn set_draw_lines<T>(&mut self, font_manager: &'a FontManager<T>) -> Result<(), String>{
         if self.code_changed {
             self.line_draws.clear();
@@ -189,6 +193,7 @@ impl<'a> CodeWindow<'a> {
         Ok(())
     }
 
+    /// iterator over `TextDraw` list, for copying text textures to sdl2 `canvas`
     pub fn get_draw_code(&self) -> impl Iterator<Item=&TextDraw> {
         self.line_draws.iter()
     }
@@ -197,6 +202,7 @@ impl<'a> CodeWindow<'a> {
         &self.code
     }
 }
+
 
 fn get_code_lines(code : &str, cursor_index : usize, cursor : char) -> Vec<String> {
     let mut lines : Vec<String> = Vec::new();

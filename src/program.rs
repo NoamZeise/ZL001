@@ -1,3 +1,5 @@
+//! uses `assembler` to get a list of `Line`s to execute, that changes the status of register values 
+
 use crate::assembler::*;
 
 const TEST_EQUAL : i16 = 0b001;
@@ -50,7 +52,7 @@ impl Program {
             last_line : 0,
         })
     }
-
+/// return a blank `Program` that is halted
     pub fn blank() -> Self {
         Program {
             code: vec![Line {  instr: Instruction::HLT, op1 : None, op2: None, op3: None}],
@@ -58,7 +60,7 @@ impl Program {
             in_to_read : false, rio : [0 ; IO_REGISTER_COUNT], temp_state : None,  halted: true, last_line : 0,
         }
     }
-
+/// return an `Option<i16>` that is `None` if these is no value to read out from the indicated IO register
     pub fn read_out(&mut self, index : usize) -> Option<i16> {
         assert!(index < IO_REGISTER_COUNT, "io register out of range!");
         if self.out_to_read && self.active_io_reg == index {
@@ -69,11 +71,11 @@ impl Program {
             None
         }
     }
-
-    pub fn read_out_ready(&self) -> bool {
-        self.out_to_read
+/// return `true` if there is a value to be read out from IO register
+    pub fn read_out_ready(&self, index : usize) -> bool {
+        self.out_to_read && self.active_io_reg == index
     }
-
+/// read in a value to an IO register at that index, if not accepting return `Err`
     pub fn read_in(&mut self, value : i16, index : usize) -> Result<(), ()> {
         assert!(index < IO_REGISTER_COUNT, "io register out of range!");
         if self.in_to_read  && self.active_io_reg == index {
@@ -85,11 +87,11 @@ impl Program {
             Err(())
         }
     }
-
-    pub fn read_in_ready(&self) -> bool {
-        self.in_to_read
+/// return `true` if a value can be read in to an IO register
+    pub fn read_in_ready(&self, index : usize) -> bool {
+        self.in_to_read && self.active_io_reg == index
     }
-
+/// step the `Program` forward by one `Line`
     pub fn step(&mut self) {
         if self.halted || self.out_to_read || self.in_to_read { return }
         if self.pc as usize >= self.code.len() {
@@ -205,7 +207,7 @@ impl Program {
                 }
         Ok((op1, op2))
     }
-
+/// returns `None` if an IO register is requested
     pub fn get_register_value(&self, reg : Register) -> Option<i16> {
         match reg {
             Register::PC => Some(self.pc),
@@ -229,7 +231,7 @@ impl Program {
             },
         }
     }
-
+/// check if the program has been halted
     pub fn halted(&self) -> bool {
         self.halted
     }

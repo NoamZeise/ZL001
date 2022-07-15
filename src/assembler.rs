@@ -1,7 +1,12 @@
+//! Parses code into a list of `Instructions` and `Operand`s
+//! for a `Program` to execute
+
 use std::collections::HashMap;
 
+/// Amount of IO registers a `Program` has
 pub const IO_REGISTER_COUNT : usize = 4;
 
+/// Tells the program what to do with the `Operand`s
 #[derive(Copy, Clone, Debug)]
 pub enum Instruction {
     ADD,
@@ -17,6 +22,7 @@ pub enum Instruction {
     HLT,
 }
 
+/// represents an `i16` member of `Program`
 #[derive(Copy, Clone, Debug)]
 pub enum Register {
     PC,
@@ -33,6 +39,8 @@ enum InterimOp {
     Lable(String),
 }
 
+/// Indicates what caused the assembler to fail and returns a `usize`
+/// that points to the offending line of code
 #[derive(Debug)]
 pub enum CodeError {
     TooManyOps(usize),
@@ -70,12 +78,14 @@ impl InterimLine {
     }
 }
 
+/// Either a `Register` or an `i16` value
 #[derive(Copy, Clone)]
 pub enum Operand {
     Reg(Register),
     Direct(i16)
 }
 
+/// An `Instruction` with 0 to 3 `Operand`s
 #[derive(Copy, Clone)]
 pub struct Line {
     pub instr : Instruction,
@@ -303,7 +313,9 @@ fn to_final_lines(lines: Vec<InterimLine>) -> Result<Vec<Line>, CodeError> {
     Ok(final_lines)
 }
 
-
+/// Converts code to a list of `Instruction`s
+/// guarentees each `Instruction` has an appropriate number of `Operand`s
+/// and replaces code lables with direct values
 pub fn get_program_instructions(text_input : &str) -> Result<Vec<Line>, CodeError> {
     let interim_lines = get_lines(text_input)?;
     to_final_lines(interim_lines)

@@ -67,6 +67,8 @@ pub struct Typing {
     pub y         : bool,
     pub s         : bool,
     pub l         : bool,
+    pub n         : bool,
+    pub p         : bool,
     pub up        : bool,
     pub down      : bool,
     pub left      : bool,
@@ -89,6 +91,8 @@ impl Typing {
             y        : false,
             s        : false,
             l        : false,
+            n        : false,
+            p        : false,
             up       : false,
             down     : false,
             left     : false,
@@ -135,6 +139,8 @@ impl Typing {
                        Scancode::Y => self.y = key_down,
                        Scancode::S => self.s = key_down,
                        Scancode::L => self.l = key_down,
+                       Scancode::N => self.n = key_down,
+                       Scancode::P => self.p = key_down,
                        _ => {}
                    }
                 }
