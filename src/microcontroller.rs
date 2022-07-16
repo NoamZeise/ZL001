@@ -1,7 +1,7 @@
 //! Holds a `Program` and `CodeWindow` for inputting, drawing and executing user code
 
 use crate::assembler::CodeError;
-use crate::geometry::Vec2;
+use crate::geometry::*;
 use crate::code_window::CodeWindow;
 use crate::resource::Font;
 use crate::program::Program;
@@ -50,6 +50,17 @@ impl<'a> Microcontroller<'a> {
     pub fn compile(&mut self) -> Result<(), CodeError> {
         Ok(self.program = Program::new(self.code_window.get_code())?)
     }
+
+    /// get current code stored in `CodeWindow`
+    pub fn get_code(&self) -> &str {
+        self.code_window.get_code()
+    }
+
+    /// set current code stored in [`CodeWindow`]
+    pub fn set_code(&mut self, code : String) {
+        self.code_window.set_code(code);
+    }
+
     /// excute the next instruction in the `Program`
     pub fn step(&mut self) {
         self.program.step();

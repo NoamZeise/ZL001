@@ -10,6 +10,10 @@ use sdl2::render::Canvas;
 use sdl2::video::Window;
 
 use std::collections::HashMap;
+use std::path::Path;
+use std::fs::File;
+use std::io::prelude::*;
+use std::str::FromStr;
 
 #[derive(Eq, PartialEq, Hash)]
 struct McConnection {
@@ -145,23 +149,101 @@ impl<'a> Circuit<'a> {
         }
 
         if typing.ctrl && typing.up && !self.prev_typing.up {
-            for mc in self.mcs.as_mut_slice() {
-                match mc.io_read_in(10, 2) {
-                    Ok(_) => println!("read in value"),
-                    Err(_) => println!("failed to read in value"),
-                }
-            }
+            self.save_to_file(Path::new("saves/test.circ")).unwrap();
         }
 
         if typing.ctrl && typing.down && !self.prev_typing.down {
-            for mc in self.mcs.as_mut_slice() {
-                match mc.io_read_out(3) {
-                    Some(v) => println!("read {} from io 3", v),
-                    None => println!("nothing to read from io 3"),
-                }
-            }
+            self.load_from_file(Path::new("saves/test.circ")).unwrap();
         }
 
         self.prev_typing = *typing;
     }
+
+    /// save the circuit to given file path
+    pub fn save_to_file(&self, path : &Path) -> Result<(), String> {
+        let mut file = File::create(path).map_err(|e| e.to_string())?;
+        //save mcs
+        for mc in self.mcs.as_slice() {
+            let mc_game_obj = mc.get_game_object();
+            file.write(
+                format!(
+                    "<mc>\n{} {} {} {}\n",
+                    mc_game_obj.draw_rect.x,
+                    mc_game_obj.draw_rect.y,
+                    mc_game_obj.draw_rect.w,
+                    mc_game_obj.draw_rect.h,
+                ).as_bytes()
+            ).map_err(|e| e.to_string())?;
+            file.write(mc.get_code().as_bytes()).map_err(|e| e.to_string())?;
+            file.write("\n".as_bytes()).map_err(|e| e.to_string())?;
+        }
+        //save mc connections
+        file.write("<connections>\n".as_bytes()).map_err(|e| e.to_string())?;
+        for (out_io, in_io) in self.connections.iter() {
+             file.write(
+                format!(
+                    "{} {} {} {}\n",
+                    out_io.get_mc_i(),
+                    out_io.get_io_i(),
+                    in_io.get_mc_i(),
+                    in_io.get_io_i(),
+                ).as_bytes()
+            ).map_err(|e| e.to_string())?;
+        }
+
+        Ok(())
+    }
+
+    /// clear current circuit and load previously saved circuit
+    pub fn load_from_file(&mut self, path : &Path) -> Result<(), String> {
+        //clear circuit
+        self.mcs.clear();
+        self.connections.clear();
+        self.active_mc = 0;
+
+        let mut file = File::open(path).map_err(|e| e.to_string())?;
+        let mut text = String::new();
+        file.read_to_string(&mut text).map_err(|e| e.to_string())?;
+        let (mc_text, connection_text) = text.split_once("<connections>").unwrap();
+        println!("mc_text:\n{}\nconnection_text:\n{}",mc_text, connection_text);
+        //load mcs
+        for mc in mc_text.split("<mc>").skip(1) {
+            //get rect
+            println!("mc:\n{}", mc);
+            let (rect, code) = mc.trim_start().split_once("\n").unwrap();
+            println!("rect:\n{}\ncode:\n{}", rect, code);
+            let rect = parse_4_vals(rect.trim())?;
+            let rect = Rect::new(rect[0], rect[1], rect[2], rect[3]);
+            self.add_circuit(rect);
+            self.mcs.last_mut().unwrap().set_code(code.to_string());
+        }
+
+        //load mc connections
+        for con in connection_text.trim().split("\n") {
+            let con = parse_4_vals(con)?;
+            self.add_connection(con[0], con[1], con[2], con[3]);
+        }
+        
+        Ok(())
+    }
+}
+
+fn parse_4_vals<T : FromStr>(text : &str) -> Result<Vec::<T>, String> 
+where <T as FromStr>::Err : std::fmt::Debug {
+    let mut vals : Vec<T> = Vec::new();
+    let vals_result : Vec<Result<T, String>> =
+        text
+        .split(" ")
+        .map(
+            |v|
+            v.parse::<T>().map_err(|_| String::from("error parsing str into number [circuit::parse_4_vals()]"))
+        )
+        .collect();
+    for v in vals_result {
+        vals.push(v?)
+    }
+    if vals.len() != 4 {
+        return Err(String::from("parse wasn't 4"));
+    }
+    Ok(vals)
 }

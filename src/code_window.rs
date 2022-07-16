@@ -201,6 +201,12 @@ impl<'a> CodeWindow<'a> {
     pub fn get_code(&self) -> &str {
         &self.code
     }
+
+    pub fn set_code(&mut self, code : String) {
+        self.code = code;
+        //updates code
+        self.cursor_blink_timer = CURSOR_BLINK_DELAY + 1.0;
+    }
 }
 
 
