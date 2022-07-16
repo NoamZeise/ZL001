@@ -44,6 +44,11 @@ pub fn main() -> Result<(), String> {
     );
     circuit.add_circuit(Rect::new(20.0, 50.0, 100.0, 100.0));
     circuit.add_circuit(Rect::new(300.0, 50.0, 100.0, 100.0));
+    circuit.add_circuit(Rect::new(20.0, 400.0, 100.0, 100.0));
+    circuit.add_connection(0, 0, 1, 0);
+    circuit.add_connection(1, 0, 0, 0);
+    circuit.add_connection(0, 1, 2, 0);
+    circuit.add_connection(2, 0, 0, 1);
 
     canvas.set_draw_color(Color::RGB(45, 59, 55));
 

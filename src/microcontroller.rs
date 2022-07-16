@@ -60,9 +60,17 @@ impl<'a> Microcontroller<'a> {
         self.program.read_in(value, index)
     }
 
+    pub fn io_read_in_ready(&self, index : usize) -> bool {
+        self.program.read_in_ready(index)
+    }
+
     /// read value from io register at index
     pub fn io_read_out(&mut self, index : usize) -> Option<i16> {
         self.program.read_out(index)
+    }
+
+    pub fn io_read_out_ready(&self, index : usize) -> bool {
+        self.program.read_out_ready(index)
     }
 
     /// debug function to show value in registers
