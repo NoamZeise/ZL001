@@ -4,7 +4,7 @@ use sdl2::pixels::Color;
 use sdl2::image;
 
 use zl001::{TextureManager, FontManager, GameObject};
-use zl001::input::{Input, Typing};
+use zl001::input::Typing;
 use zl001::circuit::Circuit;
 use zl001::geometry::Rect;
 
@@ -45,17 +45,16 @@ pub fn main() -> Result<(), String> {
     circuit.add_circuit(Rect::new(20.0, 50.0, 100.0, 100.0));
     circuit.add_circuit(Rect::new(300.0, 50.0, 100.0, 100.0));
     circuit.add_circuit(Rect::new(20.0, 400.0, 100.0, 100.0));
-    circuit.add_connection(0, 0, 1, 0);
-    circuit.add_connection(1, 0, 0, 0);
-    circuit.add_connection(0, 1, 2, 0);
-    circuit.add_connection(2, 0, 0, 1);
+    circuit.add_connection(0, 0, 1, 0)?;
+    circuit.add_connection(1, 0, 0, 0)?;
+    circuit.add_connection(0, 1, 2, 0)?;
+    circuit.add_connection(2, 0, 0, 1)?;
 
     canvas.set_draw_color(Color::RGB(45, 59, 55));
 
     video_subsystem.text_input().start();
 
     let mut event_pump = sdl_context.event_pump()?;
-    let mut input = Input::new();
     let mut typing = Typing::new();
     let mut prev_frame : f64 = 0.0;
     'running: loop {
@@ -70,7 +69,6 @@ pub fn main() -> Result<(), String> {
                 } => break 'running,
                 _ => {}
             }
-            input.handle_event(&event);
             typing.handle_event(&event);
         }
 

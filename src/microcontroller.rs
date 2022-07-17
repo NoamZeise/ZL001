@@ -35,7 +35,6 @@ impl<'a> Microcontroller<'a> {
         for l in self.code_window.get_draw_code() {
             canvas.copy(&l.tex, None, l.rect)?;
         }
-
         Ok(())
     }
 
@@ -97,8 +96,12 @@ impl<'a> Microcontroller<'a> {
             println!("R2: {}", self.program.get_register_value(crate::assembler::Register::R2).unwrap());
             println!("RT: {}", self.program.get_register_value(crate::assembler::Register::RT).unwrap());
             for io_reg in 0..assembler::IO_REGISTER_COUNT {
-                println!("accepting RI[{}]: {}", io_reg, self.program.read_in_ready(io_reg));
-                println!("waiting   RO[{}]: {}", io_reg, self.program.read_out_ready(io_reg));
+                if self.program.read_in_ready(io_reg) {
+                    println!("accepting RI[{}]", io_reg);
+                }
+                if self.program.read_out_ready(io_reg) {
+                    println!("waiting   RO[{}]", io_reg, );
+                }
             }
         }
     }

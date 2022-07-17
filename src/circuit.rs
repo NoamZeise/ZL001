@@ -4,7 +4,7 @@ use crate::microcontroller::Microcontroller;
 use crate::resource::Font;
 use crate::geometry::Rect;
 use crate::input::Typing;
-use crate::{GameObject, FontManager, TextureManager};
+use crate::{GameObject, FontManager, TextureManager, assembler};
 
 use sdl2::render::Canvas;
 use sdl2::video::Window;
@@ -66,8 +66,15 @@ impl<'a> Circuit<'a> {
     }
 
     /// temp function until UI working -> add connection between two mcs to circuit
-    pub fn add_connection(&mut self, mc_i1 : usize, io_i1 : usize, mc_i2 : usize, io_i2 : usize) {
+    pub fn add_connection(&mut self, mc_i1 : usize, io_i1 : usize, mc_i2 : usize, io_i2 : usize) -> Result<(), String> {
+        if mc_i1 >= self.mcs.len() || mc_i2 >= self.mcs.len() {
+            return Err(String::from("connection: mc index out of range"));
+        }
+        if io_i1 >= assembler::IO_REGISTER_COUNT || io_i2 >= assembler::IO_REGISTER_COUNT {
+            return Err(String::from("connection: io index out of range"));
+        }
         self.connections.insert(McConnection::new(mc_i1, io_i1), McConnection::new(mc_i2, io_i2));
+        Ok(())
     }
 
     pub fn draw<TTex, TFont>(&mut self, canvas : &mut Canvas<Window>,  texture_manager : &'a TextureManager<TTex>, font_manager : &'a FontManager<TFont>) -> Result<(), String> {
@@ -79,6 +86,26 @@ impl<'a> Circuit<'a> {
             }
         }
         Ok(())
+    }
+
+    /// update circuit or active `CodeWindow`
+    pub fn update(&mut self, frame_elapsed : f64, typing : &mut Typing) {
+
+        if self.active_mc < self.mcs.len() {
+            self.mcs[self.active_mc].update(frame_elapsed, typing);
+        }
+
+        self.debug_controls(typing);
+       
+        self.prev_typing = *typing;
+    }
+    
+    fn io_in_ready(&self, connection : &McConnection) -> bool {
+        self.mcs[connection.get_mc_i()].io_read_in_ready(connection.get_io_i())
+    }
+
+    fn io_out_ready(&self, connection : &McConnection) -> bool {
+        self.mcs[connection.get_mc_i()].io_read_out_ready(connection.get_io_i())
     }
 
     fn step_circuit(&mut self) {
@@ -98,8 +125,7 @@ impl<'a> Circuit<'a> {
             for io_out in read_out_ports.as_slice().into_iter() {
                 match self.connections.get(&io_out) {
                     Some(io_in) => {
-                        if self.mcs[io_in.get_mc_i()].io_read_in_ready(io_in.get_io_i()) &&
-                           self.mcs[io_out.get_mc_i()].io_read_out_ready(io_out.get_io_i()){
+                        if self.io_in_ready(io_in) && self.io_out_ready(io_out) {
                             let value = self.mcs[io_out.get_mc_i()].io_read_out(io_out.get_io_i()).unwrap();
                             self.mcs[io_in.get_mc_i()].io_read_in(value, io_in.get_io_i()).unwrap();
                             //step for read in mc to complete instruction
@@ -114,49 +140,6 @@ impl<'a> Circuit<'a> {
                 break;
             }
         }
-    }
-
-    /// update circuit or active `CodeWindow`
-    pub fn update(&mut self, frame_elapsed : f64, typing : &mut Typing) {
-
-        if typing.ctrl && typing.n && ! self.prev_typing.n {
-            if self.active_mc < self.mcs.len() {
-                self.active_mc += 1;
-            }
-        }
-
-        if typing.ctrl && typing.p && ! self.prev_typing.p {
-            if self.active_mc > 0 {
-                self.active_mc -= 1;
-            }
-        }
-        
-        if self.active_mc < self.mcs.len() {
-            self.mcs[self.active_mc].update(frame_elapsed, typing);
-        }
-
-        if typing.ctrl && typing.l && !self.prev_typing.l {
-            for mc in self.mcs.as_mut_slice() {
-                match mc.compile() {
-                    Ok(_) => println!("Code OK"),
-                    Err(_) => println!("Code Err"),
-                }
-            }
-        }
-
-        if typing.ctrl && typing.s && !self.prev_typing.s {
-            self.step_circuit();
-        }
-
-        if typing.ctrl && typing.up && !self.prev_typing.up {
-            self.save_to_file(Path::new("saves/test.circ")).unwrap();
-        }
-
-        if typing.ctrl && typing.down && !self.prev_typing.down {
-            self.load_from_file(Path::new("saves/test.circ")).unwrap();
-        }
-
-        self.prev_typing = *typing;
     }
 
     /// save the circuit to given file path
@@ -204,14 +187,17 @@ impl<'a> Circuit<'a> {
         let mut file = File::open(path).map_err(|e| e.to_string())?;
         let mut text = String::new();
         file.read_to_string(&mut text).map_err(|e| e.to_string())?;
-        let (mc_text, connection_text) = text.split_once("<connections>").unwrap();
-        println!("mc_text:\n{}\nconnection_text:\n{}",mc_text, connection_text);
+        let (mc_text, connection_text) = match text.split_once("<connections>") {
+            Some(v) => v,
+            None => { return Err(String::from("error parsing <connections>")); },
+        };
         //load mcs
         for mc in mc_text.split("<mc>").skip(1) {
             //get rect
-            println!("mc:\n{}", mc);
-            let (rect, code) = mc.trim_start().split_once("\n").unwrap();
-            println!("rect:\n{}\ncode:\n{}", rect, code);
+            let (rect, code) = match mc.trim_start().split_once("\n") {
+                Some(v) => v,
+                None => { return Err(String::from("error parsing rect/code split")); },
+            };
             let rect = parse_4_vals(rect.trim())?;
             let rect = Rect::new(rect[0], rect[1], rect[2], rect[3]);
             self.add_circuit(rect);
@@ -221,10 +207,50 @@ impl<'a> Circuit<'a> {
         //load mc connections
         for con in connection_text.trim().split("\n") {
             let con = parse_4_vals(con)?;
-            self.add_connection(con[0], con[1], con[2], con[3]);
+            self.add_connection(con[0], con[1], con[2], con[3])?;
         }
         
         Ok(())
+    }
+
+    fn debug_controls(&mut self, typing : &mut Typing) {
+        if typing.ctrl && typing.n && ! self.prev_typing.n {
+            if self.active_mc < self.mcs.len() {
+                self.active_mc += 1;
+            }
+        }
+
+        if typing.ctrl && typing.p && ! self.prev_typing.p {
+            if self.active_mc > 0 {
+                self.active_mc -= 1;
+            }
+        }
+
+        if typing.ctrl && typing.l && !self.prev_typing.l {
+            for mc in self.mcs.as_mut_slice() {
+                match mc.compile() {
+                    Ok(_) => println!("Code OK"),
+                    Err(_) => println!("Code Err"),
+                }
+            }
+        }
+
+        if typing.ctrl && typing.s && !self.prev_typing.s {
+            self.step_circuit();
+        }
+
+        if typing.ctrl && typing.up && !self.prev_typing.up {
+            self.save_to_file(Path::new("saves/test.circ")).unwrap();
+        }
+
+        if typing.ctrl && typing.down && !self.prev_typing.down {
+            self.load_from_file(Path::new("saves/test.circ")).unwrap();
+        }
+
+        if typing.ctrl && typing.c && !self.prev_typing.c {
+            self.connections.clear();
+            self.mcs.clear();
+        }
     }
 }
 
