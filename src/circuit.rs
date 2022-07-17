@@ -1,10 +1,9 @@
 //! Holds a list of microcontrollers and update/draws the currently active one
 
-use crate::microcontroller::Microcontroller;
 use crate::resource::Font;
 use crate::geometry::Rect;
 use crate::input::Typing;
-use crate::{GameObject, FontManager, TextureManager, assembler};
+use crate::{GameObject, FontManager, TextureManager,  microcontroller::Microcontroller, gui::Gui};
 
 use sdl2::render::Canvas;
 use sdl2::video::Window;
@@ -15,27 +14,6 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::str::FromStr;
 
-#[derive(Eq, PartialEq, Hash)]
-struct McConnection {
-    mc_i : usize,
-    io_i : usize,
-}
-
-
-impl McConnection {
-    fn new(mc_i : usize, io_i : usize) -> Self {
-        McConnection { mc_i, io_i }
-    }
-
-    fn get_mc_i(&self) -> usize {
-        self.mc_i
-    }
-    
-    fn get_io_i(&self) -> usize {
-        self.io_i
-    }
-}
-
 pub struct Circuit<'a> {
     mc_game_obj : GameObject,
     active_mc : usize,
@@ -43,17 +21,19 @@ pub struct Circuit<'a> {
     connections : HashMap<McConnection, McConnection>,
     mono_font : Font,
     prev_typing : Typing,
+    gui : Gui,
 }
 
 impl<'a> Circuit<'a> {
-    pub fn new(mono_font : Font, mc_game_obj : GameObject) -> Self {
+    pub fn new(mono_font : Font, mc_game_obj : GameObject, btn_game_obj : GameObject) -> Self {
         Circuit {
             mc_game_obj,
             active_mc : 0,
             mcs: Vec::new(),
             connections : HashMap::new(),
-            mono_font,
+            mono_font : mono_font.clone(),
             prev_typing : Typing::new(),
+            gui : Gui::new(btn_game_obj, mono_font)
         }
     }
 
@@ -70,7 +50,7 @@ impl<'a> Circuit<'a> {
         if mc_i1 >= self.mcs.len() || mc_i2 >= self.mcs.len() {
             return Err(String::from("connection: mc index out of range"));
         }
-        if io_i1 >= assembler::IO_REGISTER_COUNT || io_i2 >= assembler::IO_REGISTER_COUNT {
+        if io_i1 >= self.mcs[mc_i1].io_count() || io_i2 >= self.mcs[mc_i2].io_count() {
             return Err(String::from("connection: io index out of range"));
         }
         self.connections.insert(McConnection::new(mc_i1, io_i1), McConnection::new(mc_i2, io_i2));
@@ -84,6 +64,7 @@ impl<'a> Circuit<'a> {
             for mc in self.mcs.as_slice() {
                 texture_manager.draw(canvas, mc.get_game_object())?;
             }
+            self.gui.draw(canvas, texture_manager, font_manager)?;
         }
         Ok(())
     }
@@ -93,11 +74,20 @@ impl<'a> Circuit<'a> {
 
         if self.active_mc < self.mcs.len() {
             self.mcs[self.active_mc].update(frame_elapsed, typing);
+        } else {
+            self.circuit_controls(typing);
         }
 
         self.debug_controls(typing);
        
         self.prev_typing = *typing;
+    }
+
+    fn circuit_controls(&mut self, typing : &Typing) {
+        self.gui.update(&typing.mouse);
+        if let Some(rect) = self.gui.add_circ_request() {
+            self.add_circuit(rect);
+        }
     }
     
     fn io_in_ready(&self, connection : &McConnection) -> bool {
@@ -113,7 +103,7 @@ impl<'a> Circuit<'a> {
         for (mc_i, mc) in self.mcs.as_mut_slice().into_iter().enumerate() {
             mc.step();
             mc.debug_print_registers();
-            for port_i in 0..crate::assembler::IO_REGISTER_COUNT {
+            for port_i in 0..mc.io_count() {
                 if mc.io_read_out_ready(port_i) {
                     read_out_ports.push(McConnection::new(mc_i, port_i));
                 }
@@ -272,4 +262,25 @@ where <T as FromStr>::Err : std::fmt::Debug {
         return Err(String::from("parse wasn't 4"));
     }
     Ok(vals)
+}
+
+#[derive(Eq, PartialEq, Hash)]
+struct McConnection {
+    mc_i : usize,
+    io_i : usize,
+}
+
+
+impl McConnection {
+    fn new(mc_i : usize, io_i : usize) -> Self {
+        McConnection { mc_i, io_i }
+    }
+
+    fn get_mc_i(&self) -> usize {
+        self.mc_i
+    }
+    
+    fn get_io_i(&self) -> usize {
+        self.io_i
+    }
 }

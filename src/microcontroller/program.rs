@@ -1,6 +1,6 @@
 //! uses `assembler` to get a list of `Line`s to execute, that changes the status of register values 
 
-use crate::assembler::*;
+use crate::microcontroller::assembler::*;
 
 const TEST_EQUAL : i16 = 0b001;
 const TEST_LESS_THAN : i16 = 0b010;
@@ -59,6 +59,10 @@ impl Program {
             pc: 0, r1: 0, r2: 0, rt: 0, active_io_reg : 0, out_to_read : false,
             in_to_read : false, rio : [0 ; IO_REGISTER_COUNT], temp_state : None,  halted: true, last_line : 0,
         }
+    }
+    /// get io register count
+    pub fn io_reg_count(&self) -> usize {
+        self.rio.len()
     }
 /// return an `Option<i16>` that is `None` if these is no value to read out from the indicated IO register
     pub fn read_out(&mut self, index : usize) -> Option<i16> {

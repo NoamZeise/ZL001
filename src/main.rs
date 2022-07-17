@@ -40,6 +40,11 @@ pub fn main() -> Result<(), String> {
             texture_manager.load(
                 Path::new("textures/microcontroller.png")
             )?
+        ),
+        GameObject::new(
+            texture_manager.load(
+                Path::new("textures/button.png")
+            )?
         )
     );
     circuit.add_circuit(Rect::new(20.0, 50.0, 100.0, 100.0));

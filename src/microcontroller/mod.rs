@@ -1,10 +1,15 @@
 //! Holds a `Program` and `CodeWindow` for inputting, drawing and executing user code
 
-use crate::assembler::CodeError;
+mod assembler;
+mod code_window;
+mod program;
+
+use self::assembler::CodeError;
+use self::code_window::CodeWindow;
+use self::program::Program;
+
 use crate::geometry::*;
-use crate::code_window::CodeWindow;
 use crate::resource::Font;
-use crate::program::Program;
 use crate::input::Typing;
 use crate::FontManager;
 use crate::GameObject;
@@ -29,6 +34,12 @@ impl<'a> Microcontroller<'a> {
             program : Program::blank(),
         }
     }
+
+    /// get program io count
+    pub fn io_count(&self) -> usize {
+        self.program.io_reg_count()
+    }
+    
 /// draw the `CodeWindow` to the sdl2 `Canvas`
     pub fn draw<T>(&mut self, canvas: &mut Canvas<Window>, font_manager : &'a FontManager<T>) -> Result<(), String> {
         self.code_window.set_draw_lines(font_manager)?;
@@ -86,15 +97,14 @@ impl<'a> Microcontroller<'a> {
     /// debug function to show value in registers
     #[cfg(debug_assertions)]
     pub fn debug_print_registers(&self) {
-        use crate::assembler;
 
         if self.program.halted() {
             println!("Program Halted\n");
         } else {
-            println!("\nPC: {}", self.program.get_register_value(crate::assembler::Register::PC).unwrap());
-            println!("R1: {}", self.program.get_register_value(crate::assembler::Register::R1).unwrap());
-            println!("R2: {}", self.program.get_register_value(crate::assembler::Register::R2).unwrap());
-            println!("RT: {}", self.program.get_register_value(crate::assembler::Register::RT).unwrap());
+            println!("\nPC: {}", self.program.get_register_value(assembler::Register::PC).unwrap());
+            println!("R1: {}", self.program.get_register_value(assembler::Register::R1).unwrap());
+            println!("R2: {}", self.program.get_register_value(assembler::Register::R2).unwrap());
+            println!("RT: {}", self.program.get_register_value(assembler::Register::RT).unwrap());
             for io_reg in 0..assembler::IO_REGISTER_COUNT {
                 if self.program.read_in_ready(io_reg) {
                     println!("accepting RI[{}]", io_reg);

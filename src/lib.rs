@@ -7,15 +7,15 @@ use sdl2::ttf;
 use std::collections::HashMap;
 use std::path::Path;
 use std::clone::Clone;
-pub mod geometry;
-use crate::geometry::{Rect, Vec2};
-pub mod input;
-pub mod code_window;
-pub mod assembler;
-pub mod program;
-pub mod circuit;
-pub mod microcontroller;
 
+pub mod geometry;
+pub mod input;
+pub mod microcontroller;
+pub mod circuit;
+pub mod button;
+mod gui;
+
+use crate::geometry::*;
 
 pub mod resource {
 //! represent sdl2 textures and fonts as cheap structs that hold indexes for resource managers
