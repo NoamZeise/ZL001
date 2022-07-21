@@ -252,7 +252,7 @@ where <T as FromStr>::Err : std::fmt::Debug {
         .split(" ")
         .map(
             |v|
-            v.parse::<T>().map_err(|_| String::from("error parsing str into number [circuit::parse_4_vals()]"))
+            v.trim().parse::<T>().map_err(|_| String::from(format!("error parsing str into number [circuit::parse_4_vals()], text : {}", v.trim())))
         )
         .collect();
     for v in vals_result {

@@ -97,36 +97,40 @@ pub struct Line {
 
 fn get_operand(word : &str, line_index : usize) -> Result<InterimOp, CodeError> {
     Ok(
-        match word.to_uppercase().as_str() {
-            "PC" => InterimOp::Reg(Register::PC),
-            "R1" => InterimOp::Reg(Register::R1),
-            "R2" => InterimOp::Reg(Register::R2),
-            "RT" => InterimOp::Reg(Register::RT),
-            _ => {
-                if word.to_uppercase().starts_with("IO") {
-                    match word.split_at(2).1.parse::<u16>() {
-                        Ok(n) => {
-                            if n as usize >= IO_REGISTER_COUNT {
-                                return Err(CodeError::OutOfRangeIO(line_index));
+        {
+            let word = word.trim().to_uppercase();
+            match word.as_str() {
+                "PC" => InterimOp::Reg(Register::PC),
+                "R1" => InterimOp::Reg(Register::R1),
+                "R2" => InterimOp::Reg(Register::R2),
+                "RT" => InterimOp::Reg(Register::RT),
+                _ => {
+                    if word.starts_with("IO") {
+                        match word.split_at(2).1.parse::<u16>() {
+                            Ok(n) => {
+                                if n as usize >= IO_REGISTER_COUNT {
+                                    return Err(CodeError::OutOfRangeIO(line_index));
+                                }
+                                InterimOp::Reg(Register::RIO(n as usize))
+                            },
+                            _ => { return Err(CodeError::UnknownNumber(line_index));
                             }
-                            InterimOp::Reg(Register::RIO(n as usize))
-                        },
-                        _ => { return Err(CodeError::UnknownNumber(line_index));
                         }
                     }
+                    else if word.starts_with("#") {
+                        match word.split_at(1).1.parse::<u16>() {
+                            Ok(n) => InterimOp::Direct(n as i16),
+                            _ => { return Err(CodeError::UnknownNumber(line_index)); }
+                        }
+                    } else { InterimOp::Lable(word.to_string()) }
                 }
-                else if word.starts_with("#") {
-                    match word.split_at(1).1.parse::<u16>() {
-                         Ok(n) => InterimOp::Direct(n as i16),
-                         _ => { return Err(CodeError::UnknownNumber(line_index)); }
-                    }
-                } else { InterimOp::Lable(word.to_string()) }
             }
         }
     )
 }
 
 fn get_instruction(text: &str) -> Result<Instruction, ()> {
+    let text = text.trim().to_uppercase();
     match text.to_uppercase().as_str() {
                             "ADD" => Ok(Instruction::ADD),
                             "SUB" => Ok(Instruction::SUB),
