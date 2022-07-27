@@ -15,6 +15,28 @@ impl Rect {
     pub fn new(x: f64, y: f64, w: f64, h: f64) -> Self {
         Rect { x, y, w, h }
     }
+
+    pub fn new_from_vec2s(v1 : &Vec2, v2 : &Vec2) -> Self {
+        let mut smallest : Vec2 = *v1;
+        let mut dim = Vec2::new(0.0, 0.0);
+
+        if smallest.x > v2.x {
+            smallest.x = v2.x;
+            dim.x = v1.x - v2.x;
+        } else {
+            dim.x = v2.x - v1.x;
+        }
+
+        if smallest.y > v2.y {
+            smallest.y = v2.y;
+            dim.y = v1.y - v2.y;
+        } else {
+            dim.y = v2.y - v1.y;
+        }
+        
+        Rect { x: smallest.x, y: smallest.y, w: dim.x, h: dim.y }
+    }
+    
     /// Use an `sdl2::rect::Rect` to construct a `Rect`
     pub fn new_from_sdl_rect(sdl_rect : &rect::Rect) -> Self {
         Rect {
@@ -45,7 +67,7 @@ impl Rect {
 }
 
 /// A 2D Vector
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Vec2 {
     pub x : f64,
     pub y : f64,

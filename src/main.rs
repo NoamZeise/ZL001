@@ -6,7 +6,6 @@ use sdl2::image;
 use zl001::{TextureManager, FontManager, GameObject};
 use zl001::input::Typing;
 use zl001::circuit::Circuit;
-use zl001::geometry::Rect;
 
 use std::time::Instant;
 use std::path::Path;
@@ -47,17 +46,9 @@ pub fn main() -> Result<(), String> {
             )?
         )
     );
-    circuit.add_circuit(Rect::new(20.0, 50.0, 100.0, 100.0));
-    circuit.add_circuit(Rect::new(300.0, 50.0, 100.0, 100.0));
-    circuit.add_circuit(Rect::new(20.0, 400.0, 100.0, 100.0));
-    circuit.add_connection(0, 0, 1, 0)?;
-    circuit.add_connection(1, 0, 0, 0)?;
-    circuit.add_connection(0, 1, 2, 0)?;
-    circuit.add_connection(2, 0, 0, 1)?;
-
-    canvas.set_draw_color(Color::RGB(45, 59, 55));
 
     video_subsystem.text_input().start();
+    canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
 
     let mut event_pump = sdl_context.event_pump()?;
     let mut typing = Typing::new();
@@ -76,9 +67,9 @@ pub fn main() -> Result<(), String> {
             }
             typing.handle_event(&event);
         }
-
+        canvas.set_draw_color(Color::RGB(45, 59, 55));
         canvas.clear();
-
+        canvas.set_draw_color(Color::RGB(45, 59, 55));
         //draw
         circuit.draw(&mut canvas, &texture_manager, &font_manager)?;
         

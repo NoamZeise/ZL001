@@ -1,17 +1,1 @@
-<mc>
-20 50 100 100
-add io0 io1 r2
-nop
-<mc>
-300 50 100 100
-add #10 #0 io0
-nop
-<mc>
-20 400 100 100
-add #7 #0 io0
-nop
 <connections>
-0 1 2 0
-0 0 1 0
-1 0 0 0
-2 0 0 1

@@ -22,6 +22,7 @@ pub struct Circuit<'a> {
     mono_font : Font,
     prev_typing : Typing,
     gui : Gui,
+    modified : bool,
 }
 
 impl<'a> Circuit<'a> {
@@ -33,7 +34,8 @@ impl<'a> Circuit<'a> {
             connections : HashMap::new(),
             mono_font : mono_font.clone(),
             prev_typing : Typing::new(),
-            gui : Gui::new(btn_game_obj, mono_font)
+            gui : Gui::new(btn_game_obj, mono_font),
+            modified : true,
         }
     }
 
@@ -43,6 +45,7 @@ impl<'a> Circuit<'a> {
         game_obj.draw_rect = rect;
         self.mcs.push(Microcontroller::new(game_obj, self.mono_font.clone()));
         self.active_mc = self.mcs.len();
+        self.modified = true;
     }
 
     /// temp function until UI working -> add connection between two mcs to circuit
@@ -54,6 +57,7 @@ impl<'a> Circuit<'a> {
             return Err(String::from("connection: io index out of range"));
         }
         self.connections.insert(McConnection::new(mc_i1, io_i1), McConnection::new(mc_i2, io_i2));
+        self.modified = true;
         Ok(())
     }
 
@@ -61,9 +65,6 @@ impl<'a> Circuit<'a> {
         if self.active_mc < self.mcs.len() {
             self.mcs[self.active_mc].draw(canvas, font_manager)?;
         } else {
-            for mc in self.mcs.as_slice() {
-                texture_manager.draw(canvas, mc.get_game_object())?;
-            }
             self.gui.draw(canvas, texture_manager, font_manager)?;
         }
         Ok(())
@@ -71,7 +72,6 @@ impl<'a> Circuit<'a> {
 
     /// update circuit or active `CodeWindow`
     pub fn update(&mut self, frame_elapsed : f64, typing : &mut Typing) {
-
         if self.active_mc < self.mcs.len() {
             self.mcs[self.active_mc].update(frame_elapsed, typing);
         } else {
@@ -84,9 +84,48 @@ impl<'a> Circuit<'a> {
     }
 
     fn circuit_controls(&mut self, typing : &Typing) {
-        self.gui.update(&typing.mouse);
+        self.gui.update(&typing.mouse, &self.mcs, self.modified);
+        self.modified = false;
         if let Some(rect) = self.gui.add_circ_request() {
             self.add_circuit(rect);
+        }
+        if let Some(i) = self.gui.remove_mcs_index() {
+            self.remove_connection(i);
+            self.mcs.swap_remove(i);
+            self.modified = true;
+        }
+    }
+
+    fn remove_connection(&mut self, i : usize) {
+        if self.mcs.len() == 0 { return (); }
+        let mut to_remove : Vec<McConnection> = Vec::new();
+        let mut change_keys : Vec<McConnection> = Vec::new();
+        let changed_index = self.mcs.len() - 1;
+        
+        for con in self.connections.iter() {
+            if con.0.get_mc_i() == i || con.1.get_mc_i() == i {
+                    to_remove.push(*con.0);
+            }
+            else if changed_index != i {
+                if con.0.get_mc_i() == changed_index || con.1.get_mc_i() == changed_index{
+                    change_keys.push(*con.0);
+                }
+            }
+        }
+        for r in to_remove {
+            self.connections.remove(&r);
+            }
+        for k in change_keys {
+            let mut v : McConnection = *self.connections.get(&k).unwrap();
+            let mut new_k : McConnection = k;
+            if new_k.get_mc_i() == changed_index {
+                new_k = McConnection::new(i, new_k.get_io_i());
+            }
+            if v.get_mc_i() == changed_index {
+                v = McConnection::new(i, v.get_io_i());
+            }
+            self.connections.remove(&k);
+            self.connections.insert(new_k, v);
         }
     }
     
@@ -196,10 +235,12 @@ impl<'a> Circuit<'a> {
 
         //load mc connections
         for con in connection_text.trim().split("\n") {
-            let con = parse_4_vals(con)?;
-            self.add_connection(con[0], con[1], con[2], con[3])?;
+            if con != "" {
+                let con = parse_4_vals(con)?;
+                self.add_connection(con[0], con[1], con[2], con[3])?;
+            }
         }
-        
+        self.modified = true;
         Ok(())
     }
 
@@ -264,7 +305,7 @@ where <T as FromStr>::Err : std::fmt::Debug {
     Ok(vals)
 }
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
 struct McConnection {
     mc_i : usize,
     io_i : usize,

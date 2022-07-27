@@ -98,6 +98,12 @@ impl<'a, T> TextureManager<'a, T> {
             game_obj.draw_rect.to_sdl_rect()
         )
     }
+
+    pub fn draw_rect(&self, canvas : &mut Canvas<Window>, rect : &geometry::Rect, colour : &geometry::Rect) -> Result<(), String> {
+        canvas.set_draw_color(Color::RGBA(colour.x as u8, colour.y as u8, colour.w as u8, colour.h as u8));
+        canvas.fill_rect(rect.to_sdl_rect())?;
+        Ok(())
+    }
 }
 
 /// can be returned by `FontManager`, stores an sdl2 texture and a rect for drawing to a canvas

@@ -31,7 +31,7 @@ pub struct Program {
     in_to_read : bool,
     temp_state : Option<ProgramLineState>,
     halted : bool,
-    last_line : usize,
+    //last_line : usize,
 }
 
 impl Program {
@@ -49,7 +49,7 @@ impl Program {
             in_to_read : false,
             temp_state : None,
             halted : false,
-            last_line : 0,
+            //last_line : 0,
         })
     }
 /// return a blank `Program` that is halted
@@ -57,7 +57,7 @@ impl Program {
         Program {
             code: vec![Line {  instr: Instruction::HLT, op1 : None, op2: None, op3: None}],
             pc: 0, r1: 0, r2: 0, rt: 0, active_io_reg : 0, out_to_read : false,
-            in_to_read : false, rio : [0 ; IO_REGISTER_COUNT], temp_state : None,  halted: true, last_line : 0,
+            in_to_read : false, rio : [0 ; IO_REGISTER_COUNT], temp_state : None,  halted: true,
         }
     }
     /// get io register count
@@ -240,9 +240,9 @@ impl Program {
         self.halted
     }
 
-    pub fn get_last_line(&self) -> Line {
-        self.code[self.last_line].clone()
-    }
+   // pub fn get_last_line(&self) -> Line {
+   //     self.code[self.last_line].clone()
+   // }
 }
 
 fn math_instruction(instr : Instruction, op1 : i16, op2 : i16) -> i16 {
