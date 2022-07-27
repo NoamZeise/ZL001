@@ -94,6 +94,21 @@ impl<'a> Circuit<'a> {
             self.mcs.swap_remove(i);
             self.modified = true;
         }
+
+        if self.gui.save_circuit() {
+            self.save_to_file(Path::new("saves/test.circ")).unwrap();
+        }
+
+        if self.gui.load_circuit() {
+            self.load_from_file(Path::new("saves/test.circ")).unwrap();
+            self.modified = true;
+        }
+
+        if self.gui.clear_circuit() {
+            self.connections.clear();
+            self.mcs.clear();
+            self.modified = true;
+        }
     }
 
     fn remove_connection(&mut self, i : usize) {
@@ -268,19 +283,6 @@ impl<'a> Circuit<'a> {
 
         if typing.ctrl && typing.s && !self.prev_typing.s {
             self.step_circuit();
-        }
-
-        if typing.ctrl && typing.up && !self.prev_typing.up {
-            self.save_to_file(Path::new("saves/test.circ")).unwrap();
-        }
-
-        if typing.ctrl && typing.down && !self.prev_typing.down {
-            self.load_from_file(Path::new("saves/test.circ")).unwrap();
-        }
-
-        if typing.ctrl && typing.c && !self.prev_typing.c {
-            self.connections.clear();
-            self.mcs.clear();
         }
     }
 }

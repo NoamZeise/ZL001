@@ -3,11 +3,21 @@ use sdl2::video::Window;
 use sdl2::render::Canvas;
 use sdl2::pixels::Color;
 
+#[derive(PartialEq)]
+enum State {
+    Default,
+    AddMc,
+    McMenu,
+}
+
 pub struct Gui  {
-    add_circ : Button,
+    add_mc_btn : Button,
+    clear_btn : Button,
+    save_btn : Button,
+    load_btn : Button,
     prev_mouse : Mouse,
     mc_btns : Vec<Button>,
-    circ_place_mode : bool,
+    state : State,
     placed_rect : Option<Rect>,
     prev_click_pos : Option<Vec2>,
     current_mouse_pos : Vec2,
@@ -18,12 +28,18 @@ pub struct Gui  {
 
 impl Gui {
     pub fn new(btn_obj : GameObject, font : Font) -> Self {
-        let add_circ = Button::new(btn_obj.clone(), Some(Rect::new(5.0, 20.0, 150.0, 30.0)), "add circuit".to_string());
+        let add_mc_btn = Button::new(btn_obj.clone(), Some(Rect::new(5.0, 20.0, 150.0, 30.0)), "add circuit".to_string());
+        let clear_btn = Button::new(btn_obj.clone(), Some(Rect::new(170.0, 20.0, 100.0, 30.0)), "clear".to_string());
+        let save_btn = Button::new(btn_obj.clone(), Some(Rect::new(280.0, 20.0, 100.0, 30.0)), "save".to_string());
+        let load_btn = Button::new(btn_obj.clone(), Some(Rect::new(390.0, 20.0, 100.0, 30.0)), "load".to_string());
         Gui {
-            add_circ,
+            add_mc_btn,
+            clear_btn,
+            save_btn,
+            load_btn,
             mc_btns : Vec::new(),
             prev_mouse : Mouse::new(),
-            circ_place_mode : false,
+            state : State::Default,
             placed_rect : None,
             prev_click_pos : None,
             current_mouse_pos : Vec2::new(0.0, 0.0),
@@ -57,17 +73,21 @@ impl Gui {
         }
         Ok(())
     }
-
+    
     pub fn draw<'sdl2, TTex, TFont>(&mut self, canvas : &mut Canvas<Window>,  texture_manager : &'sdl2 TextureManager<TTex>, font_manager : &'sdl2 FontManager<TFont>) -> Result<(), String> {
-        Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.add_circ)?;
+        Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.add_mc_btn)?;
+        Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.clear_btn)?;
+        Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.save_btn)?;
+        Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.load_btn)?;
         for mc in self.mc_btns.as_slice() {
             Self::draw_button(canvas, texture_manager, font_manager, &self.font, mc)?;
         }
-        if self.circ_place_mode {
+        if self.state == State::AddMc {
             if let Some(p) = self.prev_click_pos {
                 self.box_tex.draw_rect = Rect::new_from_vec2s(&p, &self.current_mouse_pos);
                 texture_manager.draw(canvas, &self.box_tex)?;
             }
+            texture_manager.draw_rect(canvas, &self.add_mc_btn.game_obj().draw_rect, &Rect::new(30.0, 60.0, 90.0, 100.0))?;   
         }
         Ok(())
     }
@@ -86,9 +106,13 @@ impl Gui {
 
         self.btn_update(mouse);
             
-        if self.add_circ.clicked() {
-            self.circ_place_mode = !self.circ_place_mode;
-        } else if self.circ_place_mode {
+        if self.add_mc_btn.clicked() {
+            if self.state == State::Default {
+                self.state = State::AddMc;
+            } else if self.state == State::AddMc {
+                self.state = State::Default;
+            }
+        } else if self.state == State::AddMc {
             self.circ_place_mode_update(mouse);
         } else if self.mc_selected_index.is_some() {
             //TODO
@@ -100,7 +124,7 @@ impl Gui {
     }
 
     fn btn_update(&mut self, mouse : &Mouse) {
-        if !self.circ_place_mode { 
+        if self.state == State::Default { 
             for (i, mc) in self.mc_btns.iter_mut().enumerate() {
                 mc.update(mouse, &self.prev_mouse);
                 if mc.clicked() {
@@ -109,7 +133,10 @@ impl Gui {
             }
         }
         if self.mc_selected_index.is_none() {
-            self.add_circ.update(mouse, &self.prev_mouse);
+            self.add_mc_btn.update(mouse, &self.prev_mouse);
+            self.clear_btn.update(mouse, &self.prev_mouse);
+            self.save_btn.update(mouse, &self.prev_mouse);
+            self.load_btn.update(mouse, &self.prev_mouse);
         }
     }
 
@@ -121,7 +148,11 @@ impl Gui {
             match self.prev_click_pos {
                 Some(p) => {
                     self.placed_rect = Some(Rect::new_from_vec2s(&p, &self.current_mouse_pos));
-                    self.circ_place_mode = false;
+                    if self.placed_rect.as_ref().unwrap().w < 30.0 ||
+                        self.placed_rect.as_ref().unwrap().h < 30.0 {
+                            self.placed_rect = None;
+                        }
+                    self.state = State::Default;
                 },
                 _ => (), // happens after cliicking add circuit
             }
@@ -134,5 +165,17 @@ impl Gui {
 
     pub fn remove_mcs_index(&self) -> Option<usize> {
         self.mc_selected_index //temp for test
+    }
+
+    pub fn clear_circuit(&self) -> bool {
+        self.clear_btn.clicked()
+    }
+
+    pub fn save_circuit(&self) -> bool {
+        self.save_btn.clicked()
+    }
+
+    pub fn load_circuit(&self) -> bool {
+        self.load_btn.clicked()
     }
 }
