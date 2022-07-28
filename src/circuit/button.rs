@@ -1,6 +1,8 @@
-use crate::input::Mouse;
-use crate::geometry::*;
-use crate::GameObject;
+use crate::{
+    GameObject, geometry::*, input::Mouse, TextureManager, FontManager, resource::Font};
+use sdl2::video::Window;
+use sdl2::render::Canvas;
+use sdl2::pixels::Color;
 
 pub struct Button {
     clicked : bool,
@@ -51,5 +53,30 @@ impl Button {
 
     pub fn has_text(&self) -> bool {
         self.text != ""
+    }
+
+    pub fn draw<'sdl2, TTex, TFont>(&self,
+        canvas : &mut Canvas<Window>,
+        texture_manager : &'sdl2 TextureManager<TTex>,
+        font_manager : &'sdl2 FontManager<TFont>,
+        font : &Font) -> Result<(), String> {
+        texture_manager.draw(canvas, self.game_obj())?;
+        if self.has_text() {
+            let draw = font_manager.get_draw_at_vec2(
+                font,
+                self.text(),
+                (self.game_obj().draw_rect.h * 0.9) as u32,
+                Vec2::new(
+                    self.game_obj().draw_rect.x + self.game_obj().draw_rect.w * 0.03,
+                    self.game_obj().draw_rect.y,
+                ),
+                Color::RGB(140, 80, 20)
+            )?;
+            canvas.copy(&draw.tex, None, draw.rect)?;
+        }
+        if self.selected() {
+            texture_manager.draw_rect(canvas, &self.game_obj().draw_rect, &Rect::new(40.0, 40.0, 40.0, 80.0))?;
+        }
+        Ok(())
     }
 }

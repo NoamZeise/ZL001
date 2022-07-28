@@ -1,9 +1,18 @@
 //! Holds a list of microcontrollers and update/draws the currently active one
 
+mod circuit_helper;
+mod circuit_gui;
+mod code_gui;
+mod button;
+
 use crate::resource::Font;
 use crate::geometry::Rect;
 use crate::input::Typing;
-use crate::{GameObject, FontManager, TextureManager,  microcontroller::Microcontroller, circuit_helper::McConnection ,circuit_gui::Gui};
+use crate::{GameObject, FontManager, TextureManager,  microcontroller::Microcontroller};
+
+use circuit_helper::McConnection;
+use circuit_gui::Gui;
+use code_gui::CodeGui;
 
 use sdl2::render::Canvas;
 use sdl2::video::Window;
@@ -22,6 +31,7 @@ pub struct Circuit<'a> {
     mono_font : Font,
     prev_typing : Typing,
     gui : Gui,
+    code_gui : CodeGui,
     modified : bool,
 }
 
@@ -34,7 +44,8 @@ impl<'a> Circuit<'a> {
             connections : HashMap::new(),
             mono_font : mono_font.clone(),
             prev_typing : Typing::new(),
-            gui : Gui::new(btn_game_obj, mono_font),
+            gui : Gui::new(btn_game_obj.clone(), mono_font.clone()),
+            code_gui : CodeGui::new(btn_game_obj, mono_font),
             modified : true,
         }
     }
@@ -62,6 +73,7 @@ impl<'a> Circuit<'a> {
     pub fn draw<TTex, TFont>(&mut self, canvas : &mut Canvas<Window>,  texture_manager : &'a TextureManager<TTex>, font_manager : &'a FontManager<TFont>) -> Result<(), String> {
         if self.active_mc < self.mcs.len() {
             self.mcs[self.active_mc].draw(canvas, font_manager)?;
+            self.code_gui.draw(canvas, texture_manager, font_manager)?;
         } else {
             self.gui.draw(canvas, texture_manager, font_manager)?;
         }
@@ -71,7 +83,7 @@ impl<'a> Circuit<'a> {
     /// update circuit or active `CodeWindow`
     pub fn update(&mut self, frame_elapsed : f64, typing : &mut Typing) {
         if self.active_mc < self.mcs.len() {
-            self.mcs[self.active_mc].update(frame_elapsed, typing);
+            self.code_controls(frame_elapsed, typing);
         } else {
             self.circuit_controls(typing);
         }
@@ -116,6 +128,28 @@ impl<'a> Circuit<'a> {
             self.connections.clear();
             self.mcs.clear();
             self.modified = true;
+        }
+
+        if self.gui.compile() {
+            for mc in self.mcs.as_mut_slice() {
+                match mc.compile() {
+                    Ok(_) => println!("Code OK"),
+                    Err(_) => println!("Code Err"),
+                }
+            }
+        }
+
+        if self.gui.step() {
+            self.step_circuit();
+        }
+    }
+
+    fn code_controls(&mut self, frame_elapsed : f64, typing : &mut Typing) {
+        self.mcs[self.active_mc].update(frame_elapsed, typing);
+        self.code_gui.update(&typing.mouse);
+
+        if self.code_gui.circuit_btn() {
+            self.active_mc = self.mcs.len();
         }
     }
 
@@ -268,31 +302,6 @@ impl<'a> Circuit<'a> {
     }
 
     fn debug_controls(&mut self, typing : &mut Typing) {
-        if typing.ctrl && typing.n && ! self.prev_typing.n {
-            if self.active_mc < self.mcs.len() {
-                self.active_mc += 1;
-            }
-        }
-
-        if typing.ctrl && typing.p && ! self.prev_typing.p {
-            if self.active_mc > 0 {
-                self.active_mc -= 1;
-            }
-        }
-
-        if typing.ctrl && typing.l && !self.prev_typing.l {
-            for mc in self.mcs.as_mut_slice() {
-                match mc.compile() {
-                    Ok(_) => println!("Code OK"),
-                    Err(_) => println!("Code Err"),
-                }
-            }
-        }
-
-        if typing.ctrl && typing.s && !self.prev_typing.s {
-            self.step_circuit();
-        }
-
         if typing.ctrl && typing.z && !self.prev_typing.z {
             println!("printing connections: ");
             for con in self.connections.iter() {

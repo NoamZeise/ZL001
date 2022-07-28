@@ -1,7 +1,9 @@
-use crate::{button::Button, GameObject, geometry::*, input::Mouse, TextureManager, FontManager, resource::Font, microcontroller::Microcontroller, circuit_helper::McConnection};
+use crate::{
+    GameObject, geometry::*, input::Mouse, TextureManager, FontManager, resource::Font, microcontroller::Microcontroller};
+use super::button::Button;
+use super::circuit_helper::McConnection;
 use sdl2::video::Window;
 use sdl2::render::Canvas;
-use sdl2::pixels::Color;
 
 use std::collections::HashMap;
 
@@ -22,6 +24,8 @@ pub struct Gui  {
     clear_btn : Button,
     save_btn : Button,
     load_btn : Button,
+    compile_btn : Button,
+    step_btn : Button,
     remove_mc_btn : Button,
     code_mc_btn : Button,
     prev_mouse : Mouse,
@@ -41,19 +45,27 @@ pub struct Gui  {
 
 impl Gui {
     pub fn new(btn_obj : GameObject, font : Font) -> Self {
-        let add_mc_btn = Button::new(btn_obj.clone(), Some(Rect::new(5.0, 20.0, 150.0, 30.0)), "add circuit".to_string());
-        let add_con_btn = Button::new(btn_obj.clone(), Some(Rect::new(5.0, 60.0, 150.0, 30.0)), "add conn".to_string());
-        let clear_btn = Button::new(btn_obj.clone(), Some(Rect::new(170.0, 20.0, 100.0, 30.0)), "clear".to_string());
-        let save_btn = Button::new(btn_obj.clone(), Some(Rect::new(280.0, 20.0, 100.0, 30.0)), "save".to_string());
-        let load_btn = Button::new(btn_obj.clone(), Some(Rect::new(390.0, 20.0, 100.0, 30.0)), "load".to_string());
+        let add_mc_btn = Button::new(btn_obj.clone(), Some(Rect::new(5.0, 3.0, 130.0, 26.0)), "add circuit".to_string());
+        let add_con_btn = Button::new(btn_obj.clone(), Some(Rect::new(140.0, 3.0, 100.0, 26.0)), "add conn".to_string());
+        
+        let save_btn = Button::new(btn_obj.clone(), Some(Rect::new(560.0, 10.0, 75.0, 25.0)), "save".to_string());
+        let load_btn = Button::new(btn_obj.clone(), Some(Rect::new(560.0, 40.0, 75.0, 25.0)), "load".to_string());
+        let clear_btn = Button::new(btn_obj.clone(), Some(Rect::new(560.0, 70.0, 75.0, 25.0)), "clear".to_string());
+
+        let compile_btn = Button::new(btn_obj.clone(), Some(Rect::new(560.0, 415.0, 75.0, 25.0)), "compile".to_string());
+        let step_btn = Button::new(btn_obj.clone(), Some(Rect::new(560.0, 445.0, 75.0, 25.0)), "step".to_string());
+        
         let remove_mc_btn = Button::new(btn_obj.clone(), Some(Rect::new(100.0, 400.0, 60.0, 30.0)), "del".to_string());
         let code_mc_btn = Button::new(btn_obj.clone(), Some(Rect::new(180.0, 400.0, 60.0, 30.0)), "code".to_string());
+        
         Gui {
             add_mc_btn,
             add_con_btn,
             clear_btn,
             save_btn,
             load_btn,
+            compile_btn,
+            step_btn,
             remove_mc_btn,
             code_mc_btn,
             mc_btns : Vec::new(),
@@ -71,40 +83,17 @@ impl Gui {
             font,
         }
     }
-
-    fn draw_button<'sdl2, TTex, TFont>(
-        canvas : &mut Canvas<Window>,
-        texture_manager : &'sdl2 TextureManager<TTex>,
-        font_manager : &'sdl2 FontManager<TFont>,
-        font : &Font, button : &Button) -> Result<(), String> {
-        texture_manager.draw(canvas, button.game_obj())?;
-        if button.has_text() {
-            let draw = font_manager.get_draw_at_vec2(
-                font,
-                button.text(),
-                (button.game_obj().draw_rect.h * 0.9) as u32,
-                Vec2::new(
-                    button.game_obj().draw_rect.x + button.game_obj().draw_rect.w * 0.03,
-                    button.game_obj().draw_rect.y,
-                ),
-                Color::RGB(140, 80, 20)
-            )?;
-            canvas.copy(&draw.tex, None, draw.rect)?;
-        }
-        if button.selected() {
-            texture_manager.draw_rect(canvas, &button.game_obj().draw_rect, &Rect::new(40.0, 40.0, 40.0, 80.0))?;
-        }
-        Ok(())
-    }
     
     pub fn draw<'sdl2, TTex, TFont>(&mut self, canvas : &mut Canvas<Window>,  texture_manager : &'sdl2 TextureManager<TTex>, font_manager : &'sdl2 FontManager<TFont>) -> Result<(), String> {
-        Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.add_mc_btn)?;
-        Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.add_con_btn)?;
-        Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.clear_btn)?;
-        Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.save_btn)?;
-        Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.load_btn)?;
+        self.add_mc_btn.draw(canvas, texture_manager, font_manager, &self.font)?;
+        self.add_con_btn.draw(canvas, texture_manager, font_manager, &self.font)?;
+        self.clear_btn.draw(canvas, texture_manager, font_manager, &self.font)?;
+        self.save_btn.draw(canvas, texture_manager, font_manager, &self.font)?;
+        self.load_btn.draw(canvas, texture_manager, font_manager, &self.font)?;
+        self.compile_btn.draw(canvas, texture_manager, font_manager, &self.font)?;
+        self.step_btn.draw(canvas, texture_manager, font_manager, &self.font)?;
         for mc in self.mc_btns.as_slice() {
-            Self::draw_button(canvas, texture_manager, font_manager, &self.font, mc)?;
+            mc.draw(canvas, texture_manager, font_manager, &self.font)?;
         }
         for con in self.mc_cons.as_slice() {
             texture_manager.draw(canvas, con)?;
@@ -119,8 +108,8 @@ impl Gui {
             },
 
             State::McMenu => {
-                Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.remove_mc_btn)?;
-                Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.code_mc_btn)?;
+                self.remove_mc_btn.draw(canvas, texture_manager, font_manager, &self.font)?;
+                self.code_mc_btn.draw(canvas, texture_manager, font_manager, &self.font)?;
             },
 
             State::AddCon => {
@@ -131,7 +120,7 @@ impl Gui {
                     }
                 }
                 for c in self.con_btns.iter() {
-                    Self::draw_button(canvas, texture_manager, font_manager, &self.font, &c.0)?;
+                    c.0.draw(canvas, texture_manager, font_manager, &self.font)?;
                 }
                 texture_manager.draw_rect(canvas, &self.add_con_btn.game_obj().draw_rect, &Rect::new(30.0, 60.0, 90.0, 100.0))?;
             },
@@ -279,7 +268,8 @@ impl Gui {
         self.clear_btn.update(mouse, &self.prev_mouse);
         self.save_btn.update(mouse, &self.prev_mouse);
         self.load_btn.update(mouse, &self.prev_mouse);
-        
+        self.compile_btn.update(mouse, &self.prev_mouse);
+        self.step_btn.update(mouse, &self.prev_mouse);
     }
 
     fn circ_place_mode_update(&mut self, mouse : &Mouse) {
@@ -376,5 +366,13 @@ impl Gui {
 
     pub fn load_circuit(&self) -> bool {
         self.load_btn.clicked()
+    }
+
+    pub fn compile(&self) -> bool {
+        self.compile_btn.clicked()
+    }
+
+    pub fn step(&self) -> bool {
+        self.step_btn.clicked()
     }
 }
