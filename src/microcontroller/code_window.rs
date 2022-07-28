@@ -73,9 +73,11 @@ impl<'a> CodeWindow<'a> {
             self.enter_pressed = false;
             match typing.character {
                 Some(c) => {
-                    self.code_changed = true;
-                    self.code.insert(self.code_index, c);
-                    self.code_index+=1;
+                    if c.is_ascii() { //non ascii symbols caused issue (specifically '£')
+                        self.code_changed = true;
+                        self.code.insert(self.code_index, c);
+                        self.code_index+=1;
+                    }
                 },
                 None => {
                         if typing.left && !self.prev_input.left {

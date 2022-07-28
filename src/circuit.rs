@@ -3,7 +3,7 @@
 use crate::resource::Font;
 use crate::geometry::Rect;
 use crate::input::Typing;
-use crate::{GameObject, FontManager, TextureManager,  microcontroller::Microcontroller, gui::Gui};
+use crate::{GameObject, FontManager, TextureManager,  microcontroller::Microcontroller, circuit_helper::McConnection ,circuit_gui::Gui};
 
 use sdl2::render::Canvas;
 use sdl2::video::Window;
@@ -39,8 +39,7 @@ impl<'a> Circuit<'a> {
         }
     }
 
-    /// temp function until UI working -> add mc to circuit at rect location
-    pub fn add_circuit(&mut self, rect : Rect) {
+    fn add_circuit(&mut self, rect : Rect) {
         let mut game_obj = self.mc_game_obj.clone();
         game_obj.draw_rect = rect;
         self.mcs.push(Microcontroller::new(game_obj, self.mono_font.clone()));
@@ -48,15 +47,14 @@ impl<'a> Circuit<'a> {
         self.modified = true;
     }
 
-    /// temp function until UI working -> add connection between two mcs to circuit
-    pub fn add_connection(&mut self, mc_i1 : usize, io_i1 : usize, mc_i2 : usize, io_i2 : usize) -> Result<(), String> {
-        if mc_i1 >= self.mcs.len() || mc_i2 >= self.mcs.len() {
+    fn add_connection(&mut self, con1 : McConnection, con2 : McConnection) -> Result<(), String> {
+        if con1.get_mc_i() >= self.mcs.len() || con2.get_mc_i() >= self.mcs.len() {
             return Err(String::from("connection: mc index out of range"));
         }
-        if io_i1 >= self.mcs[mc_i1].io_count() || io_i2 >= self.mcs[mc_i2].io_count() {
+        if con1.get_io_i() >= self.mcs[con1.get_mc_i()].io_count() || con2.get_io_i() >= self.mcs[con2.get_mc_i()].io_count() {
             return Err(String::from("connection: io index out of range"));
         }
-        self.connections.insert(McConnection::new(mc_i1, io_i1), McConnection::new(mc_i2, io_i2));
+        self.connections.insert(con1, con2);
         self.modified = true;
         Ok(())
     }
@@ -84,15 +82,23 @@ impl<'a> Circuit<'a> {
     }
 
     fn circuit_controls(&mut self, typing : &Typing) {
-        self.gui.update(&typing.mouse, &self.mcs, self.modified);
+        self.gui.update(&typing.mouse, &self.mcs, &self.connections, self.modified);
         self.modified = false;
         if let Some(rect) = self.gui.add_circ_request() {
             self.add_circuit(rect);
+        }
+        //do both way connection
+        if let Some((con1, con2)) = self.gui.add_con_request() {
+            self.add_connection(con1, con2).unwrap();
+            self.add_connection(con2, con1).unwrap();
         }
         if let Some(i) = self.gui.remove_mcs_index() {
             self.remove_connection(i);
             self.mcs.swap_remove(i);
             self.modified = true;
+        }
+        if let Some(i) = self.gui.code_mcs_index() {
+            self.active_mc = i;
         }
 
         if self.gui.save_circuit() {
@@ -252,7 +258,7 @@ impl<'a> Circuit<'a> {
         for con in connection_text.trim().split("\n") {
             if con != "" {
                 let con = parse_4_vals(con)?;
-                self.add_connection(con[0], con[1], con[2], con[3])?;
+                self.add_connection(McConnection::new(con[0], con[1]), McConnection::new(con[2], con[3]))?;
             }
         }
         self.modified = true;
@@ -284,6 +290,16 @@ impl<'a> Circuit<'a> {
         if typing.ctrl && typing.s && !self.prev_typing.s {
             self.step_circuit();
         }
+
+        if typing.ctrl && typing.z && !self.prev_typing.z {
+            println!("printing connections: ");
+            for con in self.connections.iter() {
+                println!("mc: {}, io: {} -> mc: {}, io: {}",
+                         con.0.get_mc_i(), con.0.get_io_i(),
+                         con.1.get_mc_i(), con.1.get_io_i()
+                );
+            }
+        }
     }
 }
 
@@ -305,25 +321,4 @@ where <T as FromStr>::Err : std::fmt::Debug {
         return Err(String::from("parse wasn't 4"));
     }
     Ok(vals)
-}
-
-#[derive(Eq, PartialEq, Hash, Copy, Clone)]
-struct McConnection {
-    mc_i : usize,
-    io_i : usize,
-}
-
-
-impl McConnection {
-    fn new(mc_i : usize, io_i : usize) -> Self {
-        McConnection { mc_i, io_i }
-    }
-
-    fn get_mc_i(&self) -> usize {
-        self.mc_i
-    }
-    
-    fn get_io_i(&self) -> usize {
-        self.io_i
-    }
 }

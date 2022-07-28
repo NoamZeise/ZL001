@@ -3,11 +3,11 @@
 add io0 io1 r2
 nop
 <mc>
-300 90 100 100
+300 50 100 100
 add #10 #0 io0
 nop
 <mc>
-120 300 100 100
+20 400 100 100
 add #7 #0 io0
 nop
 <connections>

@@ -2,6 +2,8 @@
 
 use sdl2::rect;
 
+use std::ops;
+
 ///  A rectangle where x,y represents the coord of the upper left corner
 #[derive(Clone)]
 pub struct Rect {
@@ -51,6 +53,10 @@ impl Rect {
         rect::Rect::new(self.x as i32, self.y as i32, self.w as u32, self.h as u32)
     }
 
+    pub fn centre(&self) -> Vec2 {
+        Vec2::new(self.x + self.w/2.0, self.y + self.h/2.0)
+    }
+
     pub fn colliding(&self, rect : &Rect) -> bool {
         self.x < rect.x + rect.w &&
         self.x + self.w > rect.x &&
@@ -76,5 +82,12 @@ pub struct Vec2 {
 impl Vec2 {
     pub fn new(x: f64, y: f64) -> Self {
         Vec2 { x, y }
+    }
+}
+
+impl ops::Add<Vec2> for Vec2 {
+    type Output = Vec2;
+    fn add(self, other : Vec2) -> Vec2 {
+        Vec2::new(self.x + other.x, self.y + other.y)
     }
 }

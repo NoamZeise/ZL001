@@ -13,7 +13,8 @@ pub mod input;
 pub mod microcontroller;
 pub mod circuit;
 pub mod button;
-mod gui;
+mod circuit_gui;
+mod circuit_helper;
 
 use crate::geometry::*;
 
