@@ -23,6 +23,10 @@ impl Button {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.clicked = false;
+    }
+
     pub fn text(&self) -> &str {
         &self.text
     }

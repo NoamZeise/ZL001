@@ -15,6 +15,7 @@ pub struct Gui  {
     clear_btn : Button,
     save_btn : Button,
     load_btn : Button,
+    remove_mc_btn : Button,
     prev_mouse : Mouse,
     mc_btns : Vec<Button>,
     state : State,
@@ -32,11 +33,13 @@ impl Gui {
         let clear_btn = Button::new(btn_obj.clone(), Some(Rect::new(170.0, 20.0, 100.0, 30.0)), "clear".to_string());
         let save_btn = Button::new(btn_obj.clone(), Some(Rect::new(280.0, 20.0, 100.0, 30.0)), "save".to_string());
         let load_btn = Button::new(btn_obj.clone(), Some(Rect::new(390.0, 20.0, 100.0, 30.0)), "load".to_string());
+        let remove_mc_btn = Button::new(btn_obj.clone(), Some(Rect::new(100.0, 400.0, 60.0, 30.0)), "del".to_string());
         Gui {
             add_mc_btn,
             clear_btn,
             save_btn,
             load_btn,
+            remove_mc_btn,
             mc_btns : Vec::new(),
             prev_mouse : Mouse::new(),
             state : State::Default,
@@ -82,20 +85,29 @@ impl Gui {
         for mc in self.mc_btns.as_slice() {
             Self::draw_button(canvas, texture_manager, font_manager, &self.font, mc)?;
         }
-        if self.state == State::AddMc {
-            if let Some(p) = self.prev_click_pos {
-                self.box_tex.draw_rect = Rect::new_from_vec2s(&p, &self.current_mouse_pos);
-                texture_manager.draw(canvas, &self.box_tex)?;
+        match self.state {
+            State::AddMc => {
+                if let Some(p) = self.prev_click_pos {
+                    self.box_tex.draw_rect = Rect::new_from_vec2s(&p, &self.current_mouse_pos);
+                    texture_manager.draw(canvas, &self.box_tex)?;
+                }
+                texture_manager.draw_rect(canvas, &self.add_mc_btn.game_obj().draw_rect, &Rect::new(30.0, 60.0, 90.0, 100.0))?;
             }
-            texture_manager.draw_rect(canvas, &self.add_mc_btn.game_obj().draw_rect, &Rect::new(30.0, 60.0, 90.0, 100.0))?;   
-        }
+
+            State::McMenu => {
+                Self::draw_button(canvas, texture_manager, font_manager, &self.font, &self.remove_mc_btn)?;
+            }
+            _ => (),
+        } 
         Ok(())
     }
 
     pub fn update(&mut self, mouse : &Mouse, mcs : &Vec<Microcontroller>, modified : bool) {
+        if self.state == State::Default {
+            self.mc_selected_index = None;
+        }
         self.current_mouse_pos = Vec2::new(mouse.x as f64, mouse.y as f64);
         self.placed_rect = None;
-        self.mc_selected_index = None;
 
         if modified {
             self.mc_btns.clear();
@@ -114,8 +126,12 @@ impl Gui {
             }
         } else if self.state == State::AddMc {
             self.circ_place_mode_update(mouse);
-        } else if self.mc_selected_index.is_some() {
+        } else if self.state == State::McMenu {
             //TODO
+            if !self.prev_mouse.left_click && mouse.left_click {
+                self.state = State::Default;
+            }
+            
         }else {
             self.prev_click_pos = None;
         }
@@ -128,16 +144,21 @@ impl Gui {
             for (i, mc) in self.mc_btns.iter_mut().enumerate() {
                 mc.update(mouse, &self.prev_mouse);
                 if mc.clicked() {
+                    self.prev_mouse.left_click = true;
                     self.mc_selected_index = Some(i);
+                    self.state = State::McMenu;
+                    //change pos of btn to be under circuit
                 }
             }
+        } else if self.state ==  State::McMenu {
+            self.remove_mc_btn.update(mouse, &self.prev_mouse);
         }
-        if self.mc_selected_index.is_none() {
-            self.add_mc_btn.update(mouse, &self.prev_mouse);
-            self.clear_btn.update(mouse, &self.prev_mouse);
-            self.save_btn.update(mouse, &self.prev_mouse);
-            self.load_btn.update(mouse, &self.prev_mouse);
-        }
+
+        self.add_mc_btn.update(mouse, &self.prev_mouse);
+        self.clear_btn.update(mouse, &self.prev_mouse);
+        self.save_btn.update(mouse, &self.prev_mouse);
+        self.load_btn.update(mouse, &self.prev_mouse);
+        
     }
 
     fn circ_place_mode_update(&mut self, mouse : &Mouse) {
@@ -163,8 +184,16 @@ impl Gui {
         self.placed_rect.clone()
     }
 
-    pub fn remove_mcs_index(&self) -> Option<usize> {
-        self.mc_selected_index //temp for test
+    pub fn remove_mcs_index(&mut self) -> Option<usize> {
+        if self.remove_mc_btn.clicked() {
+            let index = self.mc_selected_index;
+            self.mc_selected_index = None;
+            self.state = State::Default;
+            self.remove_mc_btn.reset();
+            return index;
+        }
+
+        None
     }
 
     pub fn clear_circuit(&self) -> bool {
