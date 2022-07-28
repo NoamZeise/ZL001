@@ -89,8 +89,10 @@ impl<'a> Circuit<'a> {
         }
         //do both way connection
         if let Some((con1, con2)) = self.gui.add_con_request() {
-            self.add_connection(con1, con2).unwrap();
-            self.add_connection(con2, con1).unwrap();
+            if !self.connections.contains_key(&con1) && !self.connections.contains_key(&con2) {
+                self.add_connection(con1, con2).unwrap();
+                self.add_connection(con2, con1).unwrap();
+            }
         }
         if let Some(i) = self.gui.remove_mcs_index() {
             self.remove_connection(i);

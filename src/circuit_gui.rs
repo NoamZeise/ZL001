@@ -150,7 +150,7 @@ impl Gui {
 
         if modified {
             self.mc_btns.clear();
-            self.mc_btns.clear();
+            self.con_btns.clear();
             for (i, mc) in mcs.iter().enumerate() {
                 self.mc_btns.push(Button::new(mc.get_game_object().clone(), None, "".to_string()));
                 for j in 0..mc.io_count() {
