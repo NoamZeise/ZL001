@@ -134,7 +134,7 @@ impl<'a> Circuit<'a> {
             for mc in self.mcs.as_mut_slice() {
                 match mc.compile() {
                     Ok(_) => println!("Code OK"),
-                    Err(_) => println!("Code Err"),
+                    Err(e) => println!("ERR:\n{:?}\n", e),
                 }
             }
         }

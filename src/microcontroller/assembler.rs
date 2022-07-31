@@ -98,14 +98,14 @@ pub struct Line {
 fn get_operand(word : &str, line_index : usize) -> Result<InterimOp, CodeError> {
     Ok(
         {
-            let word = word.trim().to_uppercase();
-            match word.as_str() {
+            let word = word.trim();
+            match word.to_uppercase().as_str() {
                 "PC" => InterimOp::Reg(Register::PC),
                 "R1" => InterimOp::Reg(Register::R1),
                 "R2" => InterimOp::Reg(Register::R2),
                 "RT" => InterimOp::Reg(Register::RT),
                 _ => {
-                    if word.starts_with("IO") {
+                    if word.to_uppercase().starts_with("IO") {
                         match word.split_at(2).1.parse::<u16>() {
                             Ok(n) => {
                                 if n as usize >= IO_REGISTER_COUNT {
