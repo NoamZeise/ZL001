@@ -30,7 +30,8 @@ Halt -> Opcode
 HLT
 
 
-IO
+IO PORT LOCATION
+--------
  ____|0|____
 _|         |_
 3|  ZL001  |1
