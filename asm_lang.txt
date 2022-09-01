@@ -37,3 +37,8 @@ _|         |_
 3|  ZL001  |1
 _|         |_
  ----|2|----
+
+
+TODO
+-add MOD
+-check overflow
